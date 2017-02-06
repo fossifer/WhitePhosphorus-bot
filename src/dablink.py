@@ -1,5 +1,6 @@
 import time
 import re
+import sys
 import requests
 import json
 import difflib
@@ -123,11 +124,11 @@ def find_disambig_links(site, id_que, new_list, old_list):
 
 def is_rollback(comment):
     return rollback_re.match(comment) is not None
-import os
-def main():
+
+def main(pwd):
     global last_log
     site = botsite.Site()
-    site.client_login()
+    site.client_login(pwd)
     id_que, revid_que, old_revid_que, notice_que = [], [], [], []
     id_count = 0
     with open("../last.txt", 'r') as f:
@@ -238,4 +239,4 @@ def main():
         last_ts, last_id = change['timestamp'], change['revid']
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1])

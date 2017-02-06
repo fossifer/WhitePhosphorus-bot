@@ -33,6 +33,7 @@ class Site:
         self.flow_ids = {}
         self.status = ''
         self.ts = ''
+        self.pwd = ''
     
     def api_get(self, req, target, interval=1):
         req['format'] = 'json'
@@ -116,13 +117,15 @@ class Site:
         r = self.s.get('https://zh.wikipedia.org/w/api.php?action=query&format=json&assert=bot').json()
         return 'error' not in r
 
-    def client_login(self):
+    def client_login(self, pwd=None):
         data = {'logintoken': self.query_tokens('login')['logintoken']}
         self.tokens['login'] = data['logintoken']
         data['username'] = bot_name
-        data['password'] = getpass.getpass('Please input the password: ')
+        data['password'] = pwd if pwd is not None else self.pwd
+        #getpass.getpass('Please input the password: ')
         data['action'] = 'clientlogin'
         data['loginreturnurl'] = 'https://zh.wikipedia.org/'
+        self.pwd = pwd
 
         result = self.api_post(data)['clientlogin']
 
