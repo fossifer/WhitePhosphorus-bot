@@ -136,7 +136,6 @@ def main(pwd):
     last_log = last_ts[:10]
     last_id = re.findall(r'Special:diff/(\d+)', log)[0]
     print(last_ts, last_log, last_id)
-    exit(0)
     while True:
         # Step 1: get the wikitexts edited via RecentChange log
         for change in site.rc_generator(last_ts):
