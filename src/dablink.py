@@ -131,11 +131,10 @@ def main(pwd):
     site.client_login(pwd)
     id_que, revid_que, old_revid_que, notice_que = [], [], [], []
     id_count = 0
-    log = site.get_text_by_ids(['5571942'])[0].splitlines()[-1]
-    last_ts = re.findall(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', log)[0]
+    latest_log = site.get_text_by_ids(['5571942'])[0].splitlines()[-1]
+    last_ts = re.findall(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', latest_log)[0]
     last_log = last_ts[:10]
-    last_id = re.findall(r'Special:diff/(\d+)', log)[0]
-    print(last_ts, last_log, last_id)
+    last_id = int(re.findall(r'Special:diff/(\d+)', latest_log)[0])
     while True:
         # Step 1: get the wikitexts edited via RecentChange log
         for change in site.rc_generator(last_ts):
