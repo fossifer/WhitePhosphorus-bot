@@ -261,7 +261,7 @@ class Site:
     def editcount(self, username):
         r = self.api_get({'action': 'query', 'list': 'users', 'ususers': username, 'usprop': 'editcount'}, 'query')
         #r = self.s.get('https://zh.wikipedia.org/w/api.php?action=query&format=json&list=users&ususers=%s&usprop=editcount' % username).json()['query']['users'][0] # only one now
-        return r.get('editcount', 0)
+        return r.get('users', [{}])[0].get('editcount', 0)
 
     def rc_generator(self, rcstart):
         for rc in self.api_get_long({'action': 'query',
