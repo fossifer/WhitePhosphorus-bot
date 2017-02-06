@@ -40,14 +40,17 @@ class Site:
         try:
             result = self.s.get(lang_api, params = req, headers = headers).json()
         except:
-            print('Try again after %d sec...' % interval)
+            print('api_get: Try again after %d sec...' % interval)
+            print(req, target)
             time.sleep(interval)
             return self.api_get(req, target, interval * 2)
         # print(json.dumps(result, indent=4, sort_keys=True))
         if 'error' in result:
+            print(req, target)
             raise exception.Error(result['error'])
         if 'warnings' in result:
-            print('Warning: %s' % result['warnings'])
+            print('api_get: Warning: %s' % result['warnings'])
+            print(req, target)
         return result.get(target)
 
     def api_get_long(self, req, target, last_c='', interval=1):
@@ -60,15 +63,18 @@ class Site:
             try:
                 result = self.s.get(lang_api, params = c_req, headers = headers).json()
             except:
-                print('Try again after %d sec...' % interval)
+                print('api_get_long: Try again after %d sec...' % interval)
+                print(req, target, last_c)
                 time.sleep(interval)
                 for t in self.api_get_long(req, target, last_continue['continue'], interval * 2):
                     yield t
                 break
             if 'error' in result:
+                print(req, target, last_c)
                 raise exception.Error(result['error'])
             if 'warnings' in result:
-                print('Warning: %s' % result['warnings'])
+                print('api_get_long: Warning: %s' % result['warnings'])
+                print(req, target, last_c)
             if target in result:
                 yield result[target]
             if 'continue' not in result:
@@ -81,7 +87,8 @@ class Site:
         try:
             rst = self.s.post(lang_api, data = data, headers = headers).json()
         except:
-            print('Try again after %d sec...' % interval)
+            print('api_post: Try again after %d sec...' % interval)
+            print(data)
             time.sleep(interval)
             #return self.s.post(lang_api, data = data, headers = headers).json()
             return self.api_post(data, interval * 2)
@@ -150,7 +157,7 @@ class Site:
         return t_dict
 
     def is_disambig(self, titles, t_dict):
-        print('calling is_disambig')
+        #print('calling is_disambig')
         l = len(titles)
         assert(l <= max_n)
         ret = [False] * l
@@ -159,7 +166,7 @@ class Site:
             r = self.api_get_long({'action': 'query', 'prop': 'pageprops', 'redirects': '1', 'converttitles': '1', 'ppprop': 'disambiguation', 'titles': t_str}, 'query')
         except requests.exceptions.ConnectionError as error:
             print(error)
-            print('try again:')
+            print('is_disambig: try again:')
             return self.is_disambig(titles, t_dict)
         for chunk in r:
             # correct names
@@ -188,7 +195,7 @@ class Site:
             r = self.api_get_long({'action': 'query', 'prop': 'revisions', 'rvprop': 'content|ids', 'revids': '|'.join(revid_list)}, 'query')
         except requests.exceptions.ConnectionError as error:
             print(error)
-            print('try again:')
+            print('get_text_by_revid: try again:')
             return self.get_text_by_revid(revid_list)
 
         for chunk in r:
@@ -215,7 +222,7 @@ class Site:
             r = self.api_get_long({'action': 'query', 'prop': 'revisions', 'rvprop': 'content', 'pageids': '|'.join(id_list)}, 'query')
         except requests.exceptions.ConnectionError as error:
             print(error)
-            print('try again:')
+            print('get_text_by_ids: try again:')
             return self.get_text_by_ids(id_list)
 
         for chunk in r:
@@ -315,7 +322,7 @@ class Site:
         if self.status.startswith('noedit') or self.status.startswith('cantcreate'):
             print('Error: Maybe the bot is blocked and it will terminate.')
             exit(0)
-        print('Information: edit finish, sleep for %d sec.' % interval)
+        #print('Information: edit finish, sleep for %d sec.' % interval)
         time.sleep(interval)
 
         if 'edit' in rst and 'result' in rst['edit'] and rst['edit']['result'] == 'Success':
@@ -323,7 +330,7 @@ class Site:
                 self.status = 'nochange'
             else:
                 self.status = ''
-                print('Information: Page saved.')
+                #print('Information: Page saved.')
         else:
             print('Error: Page not saved, see the following result.')
             print(json.dumps(rst, indent=4, sort_keys=True))
@@ -350,7 +357,7 @@ class Site:
 
         if 'flow' in rst and 'new-topic' in rst['flow'] and 'status' in rst['flow']['new-topic'] and rst['flow']['new-topic']['status'] == 'ok':
             self.flow_ids[page+topic] = rst['flow']['new-topic']['committed']['topiclist']['topic-id']
-            print('Information: New topic created, sleep for 6 sec.')
+            #print('Information: New topic created, sleep for 6 sec.')
             self.status = ''
             time.sleep(6)
         else:
@@ -372,7 +379,7 @@ class Site:
         rst = self.api_post({'action': 'flow', 'page': page, 'submodule': 'reply', 'repreplyTo': id, 'repcontent': content, 'token': self.tokens['csrf']})
 
         if 'flow' in rst and 'reply' in rst['flow'] and 'status' in rst['flow']['reply'] and rst['flow']['reply']['status'] == 'ok':
-            print('Information: reply saved, sleep for 6 sec.')
+            #print('Information: reply saved, sleep for 6 sec.')
             self.status = ''
             time.sleep(6)
         else:
@@ -392,31 +399,8 @@ class Site:
                 #if input('Try again? (y/n)') == 'y':
                     #self.reply(page, id, content)
 
-def aaa(func):
-    def bbb(*args, **kwargs):
-        print('will call fun()')
-        ret = func(*args, **kwargs)
-        print('fun() called and the result is %s' % ret)
-        return ret
-    return bbb
-
-@aaa
-def fun(a, b):
-    print('calling fun() with para %s and %s' % (a, b))
-    return a + b
-
-@aaa
-def ttt(a, b):
-    print('calling ttt() with para %d and %d' % (a, b))
-    return str(a + b)
-
 def main():
-    rst = [2,3,4,5]
-    for i, r in enumerate(rst):
-        print(i, r)
-    
-    fun('2333', '3333')
-    ttt(2333, 3333)
+    pass
 
 if __name__ == '__main__':
     main()

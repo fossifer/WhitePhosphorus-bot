@@ -123,13 +123,15 @@ def find_disambig_links(site, id_que, new_list, old_list):
 
 def is_rollback(comment):
     return rollback_re.match(comment) is not None
-
+import os
 def main():
+    global last_log
     site = botsite.Site()
     site.client_login()
     id_que, revid_que, old_revid_que, notice_que = [], [], [], []
     id_count = 0
-    last_ts, last_id = '2017-02-06T03:44:50Z', 43091973
+    with open("../last.txt", 'r') as f:
+        [last_log, last_ts, last_id] = f.read().splitlines()
     while True:
         # Step 1: get the wikitexts edited via RecentChange log
         for change in site.rc_generator(last_ts):
@@ -142,11 +144,11 @@ def main():
             id_que.append((user, userid, timestamp, title, pageid, revid, old_revid))
             revid_que.append(revid)
             old_revid_que.append(old_revid)
+            #print("'%s', %s" % (timestamp, revid))
             if len(id_que) == max_n:
                 break
-            print("'%s', %s" % (timestamp, revid))
         if not id_que:
-            print('Information: Nothing to do, sleep for 1 sec.')
+            #print('Information: Nothing to do, sleep for 1 sec.')
             time.sleep(1)
             continue
         new_list = site.get_text_by_revid(revid_que)
@@ -175,12 +177,15 @@ def main():
                 continue
             elif site.status:
                 log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3], site.status, ''.join(r), id_que[i][3]), site.ts, red=True)
-
+            
+            with open("../last.txt", 'w') as f:
+                f.write('\n'.join([last_log, id_que[i][2], id_que[i][5]]))
+    
             # notice user
             user_talk = 'User talk:%s' % id_que[i][0]
             [talk_text, is_flow] = site.get_text_by_title(user_talk, detect_flow=True)
             will_notify = site.editcount(id_que[i][0]) >= 100 and judge_allowed(talk_text)
-            
+
             [notice, item, title, summary] = site.get_text_by_ids(['5574512', '5574516', '5575182', '5575256'])
             year, month, day = id_que[i][2][:4], int(id_que[i][2][5:7]), int(id_que[i][2][8:10])
             title = title % (year, month, day)
