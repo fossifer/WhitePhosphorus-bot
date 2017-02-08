@@ -169,9 +169,8 @@ def main(pwd):
                 # try to edit again and again
                 text = site.get_text_by_title(id_que[i][3], ts=True)
                 # s.group(1) and ...: considering uncompleted links '[[]]'
-                new_text = link_t_re.sub(lambda s: s.group(0) + '{{需要消歧义|date=%s年%d月}}' % (id_que[i][2][:4], int(id_que[i][2][5:7])) if s.group(1) and s.group(1) in ''.join(r) else s.group(0), text)
-                site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}', title=id_que[i][3],
-                      bot=False, basets=site.ts, startts=site.ts)
+                new_text = link_t_re.sub(lambda s: s.group(0) + '{{需要消歧义|date=%s年%d月}}' % (id_que[i][2][:4], int(id_que[i][2][5:7])) if s.group(1) and '[[%s]]' % s.group(1) in ''.join(r) else s.group(0), text)
+                site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}', title=id_que[i][3], bot=False, basets=site.ts, startts=site.ts)
                 if site.status != 'editconflict':
                     break
 
@@ -179,11 +178,11 @@ def main(pwd):
             if site.status == 'nochange' or site.status == 'pagedeleted':
                 continue
             elif site.status:
-                log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3], site.status, ''.join(r), id_que[i][3]), site.ts, red=True)
+                log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3], site.status, '、'.join(r), id_que[i][3]), site.ts, red=True)
     
-            # notice user
+            # judge whether to notice user or not
             user_talk = 'User talk:%s' % id_que[i][0]
-            [talk_text, is_flow] = site.get_text_by_title(user_talk, detect_flow=True)
+            [talk_text, is_flow] = site.get_text_by_title(user_talk, detect_flow=True, ts=True)
             will_notify = site.editcount(id_que[i][0]) >= 100 and judge_allowed(talk_text)
 
             [notice, item, title, summary] = site.get_text_by_ids(['5574512', '5574516', '5575182', '5575256'])
@@ -214,13 +213,13 @@ def main(pwd):
                     if notice.splitlines()[-1] in line and sec != 0:
                         line = sign_re.sub('--~~~~', line)
                         lines.insert(l, item+'\n\n')
-                        site.edit(''.join(lines), '/* %s */ ' % sectitle + summary, title=user_talk)
+                        site.edit(''.join(lines), '/* %s */ ' % sectitle + summary, title=user_talk, basets=site.ts, startts=site.ts)
                         break
                 else:
                     site.edit(notice % item+' --~~~~', summary, title=user_talk, append=True, section='new', sectiontitle=title, nocreate=False)
 
             # log
-            log(site, '检查User:%s（%s通知）于%s的编辑时发现%s' % (id_que[i][0], '未' if site.status else '已', id_que[i][2], item[2:]), id_que[i][2], site.status)
+            log(site, '检查User:%s（%s通知）于%s的编辑时发现%s' % (id_que[i][0], '未' if site.status else '已', id_que[i][2], item[2:]), id_que[i][2], red=site.status)
 
         id_count = 0
         id_que, revid_que, old_revid_que = [], [], []
