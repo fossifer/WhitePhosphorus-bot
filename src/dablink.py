@@ -169,7 +169,7 @@ def main(pwd):
                 # try to edit again and again
                 text = site.get_text_by_title(id_que[i][3], ts=True)
                 # s.group(1) and ...: considering uncompleted links '[[]]'
-                new_text = link_t_re.sub(lambda s: s.group(0) + '{{需要消歧义|date=%s年%d月}}' % (id_que[i][2][:4], int(id_que[i][2][5:7])) if s.group(1) and '[[%s]]' % s.group(1) in ''.join(r) else s.group(0), text)
+                new_text = link_t_re.sub(lambda s: s.group(0) + '{{需要消歧义|date=%s年%d月}}' % (id_que[i][2][:4], int(id_que[i][2][5:7])) if s.group(1) and '[[%s]]' % s.group(1) in r else s.group(0), text)
                 site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}', title=id_que[i][3], bot=False, basets=site.ts, startts=site.ts)
                 if site.status != 'editconflict':
                     break
