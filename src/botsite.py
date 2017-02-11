@@ -1,6 +1,7 @@
+import re
 import time
 import json
-import getpass
+import datetime
 import requests
 import exception
 
@@ -9,12 +10,22 @@ import exception
 lang = 'zh'
 lang_api = 'https://%s.wikipedia.org/w/api.php' % lang
 
-headers = {'User-Agent': "DZLWikiBot/1.0 (zh:User talk:WhitePhosphorus) BasedOnPython/3.6"}
+headers = {'User-Agent': "DZLWikiBot/1.0 (https://zh.wikipedia.org/w/User_talk:WhitePhosphorus) BasedOnPython/3.6"}
 
 bot_name = 'WhitePhosphorus-bot'
 
 maxlag = 5
 max_n = 500 # nonbots 50, bots 500
+
+def cur_timestamp():
+    utcnow = str(datetime.datetime.utcnow())
+    return utcnow.replace(' ', 'T')[:19] + 'S'
+
+comment_re = re.compile(r'<!--[\s\S]*?-->')
+nowiki_re = re.compile(r'<nowiki>[\s\S]*?</nowiki>')
+
+def remove_nottext(text):
+    return nowiki_re.sub('', comment_re.sub('', text))
 
 def check_csrf(f):
     def wrapper(*args, **kwargs):
@@ -258,6 +269,18 @@ class Site:
                     return ['', False]
                 return ''
 
+    def get_text_by_id(self, pageid):
+        req = {'action': 'query', 'pageids': pageid, 'prop': 'revisions', 'rvprop': 'content|timestamp'}
+        r = self.api_get(req, 'query')['pages']
+        temp = r.get(pageid, '')
+        self.ts = temp['revisions'][0]['timestamp']
+        return temp['revisions'][0]['*'] if temp else ''
+    '''
+    def text_and_templates_by_id(self, pageid):
+        req = {'action': 'parse', 'pageid': pageid, 'prop': 'templates|wikitext'}
+        r = self.api_get(req, 'parse')
+        return r.get('wikitext', {}).get('*', ''), r.get('templates', [{}])
+    '''
     def editcount(self, username):
         r = self.api_get({'action': 'query', 'list': 'users', 'ususers': username, 'usprop': 'editcount'}, 'query')
         #r = self.s.get('https://zh.wikipedia.org/w/api.php?action=query&format=json&list=users&ususers=%s&usprop=editcount' % username).json()['query']['users'][0] # only one now
@@ -289,6 +312,13 @@ class Site:
             if not cat['categorymembers']:
                 raise StopIteration()
             for page in cat['categorymembers']:
+                yield str(page['pageid'])
+
+    def what_embeds_it(self, pageid):
+        for rst in self.api_get_long({'action': 'query', 'list': 'embeddedin', 'eipageid': pageid, 'einamespace': '0'}, 'query'):
+            if not rst['embeddedin']:
+                raise StopIteration()
+            for page in rst['embeddedin']:
                 yield str(page['pageid'])
 
     @check_csrf

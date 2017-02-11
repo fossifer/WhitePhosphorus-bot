@@ -1,10 +1,12 @@
 import time
 import re
 import sys
-import requests
 import json
+import datetime
+import requests
 import difflib
 import botsite
+from botsite import remove_nottext, cur_timestamp
 import exception
 
 nobots_re = re.compile(r'{{[\s\r\n]*[Nn]obots[\s\r\n]*}}|{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*allow[\s\r\n]*=[\s\r\n]*none[\s\r\n]*}}|{{[Bb]ots[\s\r\n]*\|[\s\r\n]*deny[\s\r\n]*=[\s\r\n]*all[\s\r\n]*}}|{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*optout[\s\r\n]*=[\s\r\n]*all[\s\r\n]*}}')
@@ -18,11 +20,9 @@ link_t_re = re.compile(r'\[\[:?((?:{0}.)*?)(\|(?:{0}.)*?)?\]\]{0}'.format(dab_ne
 link_invalid = '<>[]|{}'
 ns_re = re.compile(r'^category\s*:|^file\s*:|^image\s*:') # do not forget to use lower()
 section_re = re.compile(r'(^|[^=])==(?P<title>[^=].*?[^=])==([^=]|$)')
-comment_re = re.compile(r'<!--[\s\S]*?-->')
-nowiki_re = re.compile(r'<nowiki>[\s\S]*?</nowiki>')
 sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]（\[\[User talk:WhitePhosphorus\|给主人留言\]\]） [0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日 \([日一二三四五六]\) [0-9]{2}:[0-9]{2} \(UTC\)')
 
-rollback_re = re.compile(r'回退\[\[Special:Contributions/(.*?)\|\1\]\]\s*\(\[\[User talk:\1\|讨论\]\]\)做出的\s*\d+\s*次编辑|\[\[WP:UNDO\|撤销\]\]|回退到由\[\[Special:Contributions/(.*?)\|\2]]\s*\(\[\[User talk:\2\|讨论\]\]\)做出的修订版本|回退.*?做出的出于\[\[WP:AGF\|善意\]\]的编辑|取消\[\[Special:Contributions/(.*?)|\3\]\]（\[\[User talk:\3|对话\]\]）的编辑')
+rollback_re = re.compile(r'回退\[\[Special:Contributions/(.*?)\|\1\]\]\s*\(\[\[User talk:\1\|讨论\]\]\)做出的\s*\d+\s*次编辑|\[\[WP:UNDO\|撤销\]\]|回退到由\[\[Special:Contributions/(.*?)\|\2]]\s*\(\[\[User talk:\2\|讨论\]\]\)做出的修订版本|回退.*?做出的出于\[\[WP:AGF\|善意\]\]的编辑|取消\[\[Special:Contributions/(.*?)|\3\]\]（\[\[User talk:\3|对话\]\]）的编辑|\[\[Wikipedia:Huggle')
 
 last_log = '2017-02-06'
 
@@ -57,16 +57,25 @@ def contains_any(src, pat):
             return c
     return None
 
-def remove_nottext(text):
-    return nowiki_re.sub('', comment_re.sub('', text))
-
 def log(site, text, ts, red=False):
     global last_log
     text = '\n* [~~~~~] ' + text
     if red:
         text = '<span style="color:red">%s</span>' % text
-    log_text = ('' if last_log == ts[:10] else '\n== %s ==' % ts[:10]) + text
-    site.edit(log_text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True, append=True)
+    if last_log == ts[:10]:
+        site.edit(text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True, append=True)
+    else:
+        # delete out-dated log and add a new section
+        cur_text = site.get_text_by_ids(['5571942'])[0]
+        strip_start = cur_text.find('== ')
+        today = datetime.datetime.strptime(ts[:10], '%Y-%m-%d')
+        last = today - datetime.timedelta(days=6)
+        strip_end = cur_text.find('== %s ==' % (last.strftime('%Y-%m-%d')))
+        log_text = '\n== %s ==' % ts[:10] + text
+        if strip_start == -1 or strip_end == -1:
+            site.edit(log_text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True, append=True)
+            return None
+        site.edit(text[:strip_start] + text[strip_end:] + log_text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True)
     last_log = ts[:10]
 
 def find_disambig_links(site, id_que, new_list, old_list):
