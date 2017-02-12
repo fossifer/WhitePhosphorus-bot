@@ -107,10 +107,13 @@ class Site:
         if 'error' in rst:
             code = rst['error'].get('code', 'error')
             if code == 'maxlag':
-                print(rst['error'].get('info', 'Maxlag Error!'))
-                print('Try again after %d sec...' % maxlag)
-                time.sleep(maxlag)
-                return api_post(self, data, maxlag * 2)
+                lag_str = rst['error'].get('info', 'Maxlag Error')
+                print(lag_str)
+                lag_match = re.search(r'(\d+(.\d+)?) seconds lagged.', lag_str)
+                lag_sec = maxlag if lag_match is None else int(lag_match.group(1))+1
+                print('Try again after %d sec...' % lag_sec)
+                time.sleep(lag_sec)
+                return api_post(self, data, lag_sec)
             self.status = code
         return rst
 

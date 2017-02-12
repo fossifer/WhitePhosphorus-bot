@@ -75,7 +75,7 @@ def log(site, text, ts, red=False):
         if strip_start == -1 or strip_end == -1:
             site.edit(log_text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True, append=True)
             return None
-        site.edit(text[:strip_start] + text[strip_end:] + log_text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True)
+        site.edit(cur_text[:strip_start] + cur_text[strip_end:] + log_text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True)
     last_log = ts[:10]
 
 def find_disambig_links(site, id_que, new_list, old_list):
