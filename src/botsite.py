@@ -110,7 +110,7 @@ class Site:
                 lag_str = rst['error'].get('info', 'Maxlag Error')
                 print(lag_str)
                 lag_match = re.search(r'(\d+(.\d+)?) seconds lagged.', lag_str)
-                lag_sec = maxlag if lag_match is None else int(lag_match.group(1))+1
+                lag_sec = maxlag if lag_match is None else double(lag_match.group(1))
                 print('Try again after %d sec...' % lag_sec)
                 time.sleep(lag_sec)
                 return api_post(self, data, lag_sec)
@@ -285,8 +285,10 @@ class Site:
         return r.get('wikitext', {}).get('*', ''), r.get('templates', [{}])
     '''
     def editcount(self, username):
-        r = self.api_get({'action': 'query', 'list': 'users', 'ususers': username, 'usprop': 'editcount'}, 'query')
+        r = self.api_get({'action': 'query', 'list': 'users', 'ususers': username, 'usprop': 'editcount|groups'}, 'query')
         #r = self.s.get('https://zh.wikipedia.org/w/api.php?action=query&format=json&list=users&ususers=%s&usprop=editcount' % username).json()['query']['users'][0] # only one now
+        if 'bot' in r.get('users', [{}])[0].get('groups'):
+            return 0
         return r.get('users', [{}])[0].get('editcount', 0)
 
     def rc_generator(self, rcstart):
@@ -456,7 +458,7 @@ class Site:
         return False
 
 def main():
-    print(Site().has_dup_rev('2821406', '40642806'))
+    pass
 
 if __name__ == '__main__':
     main()
