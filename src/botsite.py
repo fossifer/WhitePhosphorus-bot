@@ -19,7 +19,7 @@ max_n = 500 # nonbots 50, bots 500
 
 def cur_timestamp():
     utcnow = str(datetime.datetime.utcnow())
-    return utcnow.replace(' ', 'T')[:19] + 'S'
+    return utcnow.replace(' ', 'T')[:19] + 'Z'
 
 comment_re = re.compile(r'<!--[\s\S]*?-->')
 nowiki_re = re.compile(r'<nowiki>[\s\S]*?</nowiki>')
@@ -435,8 +435,28 @@ class Site:
                 #if input('Try again? (y/n)') == 'y':
                     #self.reply(page, id, content)
 
+    def has_dup_rev(self, pageid, revid, limit=50):
+        limit += 1
+        assert(limit < 5001)
+        rst = self.api_get({'action': 'query', 'prop': 'revisions', 'pageids': pageid, 'rvprop': 'ids|size', 'rvlimit': str(limit), 'rvstartid': revid}, 'query')
+        if rst is None:
+            return False
+        revisions = rst.get('pages', {}).get(pageid, {}).get('revisions', [])
+        if not revisions:
+            return False
+        suspect_list = []
+        base_size = revisions[0].get('size', -1)
+        for rev in revisions[1:]:
+            if rev.get('size', -2) == base_size:
+                suspect_list.append(str(rev.get('revid', '')))
+        for sus_id in suspect_list:
+            rst = self.api_get({'action': 'query', 'prop': 'revisions', 'revids': revid, 'rvdiffto': sus_id}, 'query')
+            if not rst.get('pages', {}).get(pageid, {}).get('revisions', [{}])[0].get('diff', {}).get('*', '喵'):
+                return True
+        return False
+
 def main():
-    pass
+    print(Site().has_dup_rev('2821406', '40642806'))
 
 if __name__ == '__main__':
     main()

@@ -22,7 +22,7 @@ ns_re = re.compile(r'^category\s*:|^file\s*:|^image\s*:') # do not forget to use
 section_re = re.compile(r'(^|[^=])==(?P<title>[^=].*?[^=])==([^=]|$)')
 sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]（\[\[User talk:WhitePhosphorus\|给主人留言\]\]） [0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日 \([日一二三四五六]\) [0-9]{2}:[0-9]{2} \(UTC\)')
 
-rollback_re = re.compile(r'回退\[\[Special:Contributions/(.*?)\|\1\]\]\s*\(\[\[User talk:\1\|讨论\]\]\)做出的\s*\d+\s*次编辑|\[\[WP:UNDO\|撤销\]\]|回退到由\[\[Special:Contributions/(.*?)\|\2]]\s*\(\[\[User talk:\2\|讨论\]\]\)做出的修订版本|回退.*?做出的出于\[\[WP:AGF\|善意\]\]的编辑|取消\[\[Special:Contributions/(.*?)|\3\]\]（\[\[User talk:\3|对话\]\]）的编辑|\[\[Wikipedia:Huggle')
+#rollback_re = re.compile(r'回退\[\[Special:Contributions/(.*?)\|\1\]\]\s*\(\[\[User talk:\1\|讨论\]\]\)做出的\s*\d+\s*次编辑|\[\[WP:UNDO\|撤销\]\]|回退到由\[\[Special:Contributions/(.*?)\|\2]]\s*\(\[\[User talk:\2\|讨论\]\]\)做出的修订版本|回退.*?做出的出于\[\[WP:AGF\|善意\]\]的编辑|取消\[\[Special:Contributions/(.*?)|\3\]\]（\[\[User talk:\3|对话\]\]）的编辑|\[\[Wikipedia:Huggle')
 
 last_log = '2017-02-06'
 
@@ -131,9 +131,6 @@ def find_disambig_links(site, id_que, new_list, old_list):
 
     return ret
 
-def is_rollback(comment):
-    return rollback_re.match(comment) is not None
-
 def main(pwd):
     global last_log
     site = botsite.Site()
@@ -147,7 +144,7 @@ def main(pwd):
     while True:
         # Step 1: get the wikitexts edited via RecentChange log
         for change in site.rc_generator(last_ts):
-            if is_rollback(change['comment']) or change['user'] == bot_name:
+            if '!nobot!' in change['comment'] or change['user'] == bot_name:
                 continue
             user, userid, timestamp, title, pageid, revid, old_revid = change['user'], change['userid'], change['timestamp'], change['title'], str(change['pageid']), change['revid'], str(change['old_revid'])
             if revid <= last_id:
@@ -192,7 +189,7 @@ def main(pwd):
             # judge whether to notice user or not
             user_talk = 'User talk:%s' % id_que[i][0]
             [talk_text, is_flow] = site.get_text_by_title(user_talk, detect_flow=True, ts=True)
-            will_notify = site.editcount(id_que[i][0]) >= 100 and judge_allowed(talk_text)
+            will_notify = site.editcount(id_que[i][0]) >= 100 and judge_allowed(talk_text) and not site.has_dup_rev(id_que[i][4], id_que[i][5])
 
             [notice, item, title, summary] = site.get_text_by_ids(['5574512', '5574516', '5575182', '5575256'])
             year, month, day = id_que[i][2][:4], int(id_que[i][2][5:7]), int(id_que[i][2][8:10])
