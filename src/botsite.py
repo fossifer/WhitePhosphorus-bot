@@ -110,7 +110,7 @@ class Site:
                 lag_str = rst['error'].get('info', 'Maxlag Error')
                 print(lag_str)
                 lag_match = re.search(r'(\d+(.\d+)?) seconds lagged.', lag_str)
-                lag_sec = maxlag if lag_match is None else double(lag_match.group(1))
+                lag_sec = maxlag if lag_match is None else float(lag_match.group(1))
                 print('Try again after %d sec...' % lag_sec)
                 time.sleep(lag_sec)
                 return api_post(self, data, lag_sec)
