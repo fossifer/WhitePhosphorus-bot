@@ -1,3 +1,5 @@
+# TODO: {{afd|[[dablink]]}}
+
 import time
 import re
 import sys
@@ -13,16 +15,13 @@ nobots_re = re.compile(r'{{[\s\r\n]*[Nn]obots[\s\r\n]*}}|{{[\s\r\n]*[Bb]ots[\s\r
 allow_re = re.compile(r'{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*allow[\s\r\n]*=[\s\r\n]*([\s\S]*?)}}')
 deny_re = re.compile(r'{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*deny[\s\r\n]*=[\s\r\n]*([\s\S]*?)}}')
 
-#link_re = re.compile(r'\[\[:?(.*?)(\||\]\])')
 dab_needed = r'(?!\s*[\r\n]?{{[\s\r\n]*需要消歧[义義])'
 link_re = re.compile(r'\[\[:?(.*?)(\|.*?)?\]\]')
 link_t_re = re.compile(r'\[\[:?((?:{0}.)*?)(\|(?:{0}.)*?)?\]\]{0}'.format(dab_needed))
 link_invalid = '<>[]|{}'
-ns_re = re.compile(r'^category\s*:|^file\s*:|^image\s*:') # do not forget to use lower()
+ns_re = re.compile(r'^category\s*:|^分[类類]\s*:|^file\s*:|^image\s*:|^文件\s*:|^[档檔]案\s*:') # do not forget to use lower()
 section_re = re.compile(r'(^|[^=])==(?P<title>[^=].*?[^=])==([^=]|$)')
 sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]（\[\[User talk:WhitePhosphorus\|给主人留言\]\]） [0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日 \([日一二三四五六]\) [0-9]{2}:[0-9]{2} \(UTC\)')
-
-#rollback_re = re.compile(r'回退\[\[Special:Contributions/(.*?)\|\1\]\]\s*\(\[\[User talk:\1\|讨论\]\]\)做出的\s*\d+\s*次编辑|\[\[WP:UNDO\|撤销\]\]|回退到由\[\[Special:Contributions/(.*?)\|\2]]\s*\(\[\[User talk:\2\|讨论\]\]\)做出的修订版本|回退.*?做出的出于\[\[WP:AGF\|善意\]\]的编辑|取消\[\[Special:Contributions/(.*?)|\3\]\]（\[\[User talk:\3|对话\]\]）的编辑|\[\[Wikipedia:Huggle')
 
 last_log = '2017-02-06'
 
@@ -38,6 +37,7 @@ def judge_allowed(page_text):
         {{bots|allow=<botlist>}} and bot_name not in <botlist>,
         {{bots|deny=all}},
         {{bots|deny=<botlist>}} and bot_name in <botlist>
+        {{bots|optout=all}}
     '''
     # without <botlist>
     if nobots_re.findall(page_text):
@@ -79,6 +79,7 @@ def log(site, text, ts, red=False):
     last_log = ts[:10]
 
 def find_disambig_links(site, id_que, new_list, old_list):
+    print(new_list[0], old_list[0])
     l = len(new_list)
     assert(l <= max_n)
     ret = [[] for i in range(l)]
@@ -217,7 +218,7 @@ def main(pwd):
                         if m.group('title').strip() == title:
                             sectitle, sec = m.group('title'), s
                     if notice.splitlines()[-1] in line and sec != 0:
-                        line = sign_re.sub('--~~~~', line)
+                        lines[l] = sign_re.sub('--~~~~', line)
                         lines.insert(l, item+'\n\n')
                         site.edit(''.join(lines), '/* %s */ ' % sectitle + summary, title=user_talk, basets=site.ts, startts=site.ts)
                         break
@@ -243,4 +244,6 @@ def main(pwd):
         last_ts, last_id = change['timestamp'], change['revid']
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    site = botsite.Site()
+    print(find_disambig_links(site, [()], site.get_text_by_revid(['43239746']), site.get_text_by_revid(['43009713'])))
+    #main(sys.argv[1])
