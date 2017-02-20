@@ -286,8 +286,14 @@ class Site:
     '''
     def editcount(self, username):
         r = self.api_get({'action': 'query', 'list': 'users', 'ususers': username, 'usprop': 'editcount|groups'}, 'query')
-        #r = self.s.get('https://zh.wikipedia.org/w/api.php?action=query&format=json&list=users&ususers=%s&usprop=editcount' % username).json()['query']['users'][0] # only one now
-        if 'bot' in r.get('users', [{}])[0].get('groups'):
+        groups = r.get('users', [{}])[0].get('groups')
+        if groups is None:
+            print('=========editcount=========')
+            print(r)
+            print(username)
+            print('===========================')
+            return 0
+        if 'bot' in groups or 'flood' in groups:
             return 0
         return r.get('users', [{}])[0].get('editcount', 0)
 
