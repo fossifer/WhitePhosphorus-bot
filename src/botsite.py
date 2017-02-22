@@ -113,7 +113,7 @@ class Site:
                 lag_sec = maxlag if lag_match is None else float(lag_match.group(1))
                 print('Try again after %d sec...' % lag_sec)
                 time.sleep(lag_sec)
-                return api_post(self, data, lag_sec)
+                return self.api_post(self, data, lag_sec)
             self.status = code
         return rst
 
@@ -156,7 +156,6 @@ class Site:
     # correct name, assuming there are no double redirects etc.
     def exact_title(self, title):
         r = self.api_get({'action': 'query', 'titles': title, 'redirects': '1', 'converttitles': '1'}, 'query')
-        #r = self.s.get('https://zh.wikipedia.org/w/api.php?action=query&format=json&titles=%s&redirects=1&converttitles=1&utf8=1' % title).json().get('query')
         if 'normalized' in r:
             title = r['normalized'][0]['to']
         if 'converted' in r:

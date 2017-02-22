@@ -245,5 +245,4 @@ def main(pwd):
 
 if __name__ == '__main__':
     site = botsite.Site()
-    print(find_disambig_links(site, [()], site.get_text_by_revid(['43239746']), site.get_text_by_revid(['43009713'])))
-    #main(sys.argv[1])
+    main(sys.argv[1])
