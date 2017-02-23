@@ -1,6 +1,3 @@
-# TODO: {{afd|[[dablink]]}}
-# TODO: {{redirect3|[[dablink]]}} (diff=43317348)
-
 import time
 import re
 import sys
@@ -12,19 +9,21 @@ import botsite
 from botsite import remove_nottext, cur_timestamp
 import exception
 
-nobots_re = re.compile(r'{{[\s\r\n]*[Nn]obots[\s\r\n]*}}|{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*allow[\s\r\n]*=[\s\r\n]*none[\s\r\n]*}}|{{[Bb]ots[\s\r\n]*\|[\s\r\n]*deny[\s\r\n]*=[\s\r\n]*all[\s\r\n]*}}|{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*optout[\s\r\n]*=[\s\r\n]*all[\s\r\n]*}}')
-allow_re = re.compile(r'{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*allow[\s\r\n]*=[\s\r\n]*([\s\S]*?)}}')
-deny_re = re.compile(r'{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*deny[\s\r\n]*=[\s\r\n]*([\s\S]*?)}}')
+nobots_re = re.compile(r'{{\s*[Nn]obots\s*}}|{{\s*[Bb]ots\s*\|\s*allow\s*=\s*none\s*}}|{{[Bb]ots\s*\|\s*deny\s*=\s*all\s*}}|{{\s*[Bb]ots\s*\|\s*optout\s*=\s*all\s*}}')
+allow_re = re.compile(r'{{\s*[Bb]ots\s*\|\s*allow\s*=\s*([\s\S]*?)}}')
+deny_re = re.compile(r'{{\s*[Bb]ots\s*\|\s*deny\s*=\s*([\s\S]*?)}}')
 
-dab_needed = r'(?!\s*[\r\n]?{{[\s\r\n]*(需要消歧[义義]|連結消歧義|链接消歧义|[Dd]isambiguation needed))' # update here when a new direct page is created
+dab_needed = r'(?![ \t]*[\r\n]?{{\s*(需要消歧[义義]|連結消歧義|链接消歧义|[Dd]isambiguation needed))' # update here when a new direct page is created
 link_re = re.compile(r'\[\[:?(.*?)(\|.*?)?\]\]')
 link_t_re = re.compile(r'\[\[:?((?:{0}.)*?)(\|(?:{0}.)*?)?\]\]{0}'.format(dab_needed))
 link_invalid = '<>[]|{}'
 ns_re = re.compile(r'^category\s*:|^分[类類]\s*:|^file\s*:|^image\s*:|^文件\s*:|^[档檔]案\s*:') # do not forget to use lower()
 section_re = re.compile(r'(^|[^=])==(?P<title>[^=].*?[^=])==([^=]|$)')
 sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]（\[\[User talk:WhitePhosphorus\|给主人留言\]\]） [0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日 \([日一二三四五六]\) [0-9]{2}:[0-9]{2} \(UTC\)')
+ts_re = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
+pycomment_re = re.compile(r'[ \t]*#.*?[\r\n]')
 
-last_log = '2017-02-06'
+last_log, ignoring_templates = '', ''
 
 max_n = 500 # nonbots 50, bots 500
 
@@ -79,6 +78,9 @@ def log(site, text, ts, red=False):
         site.edit(cur_text[:strip_start] + cur_text[strip_end:] + log_text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True)
     last_log = ts[:10]
 
+def remove_templates(site, text):
+    return re.sub(r'{{[\s\r\n]*(%s)\|[\s\S]*?}}' % ignoring_templates, '', text)
+
 def find_disambig_links(site, id_que, new_list, old_list):
     print(new_list[0], old_list[0])
     l = len(new_list)
@@ -100,24 +102,23 @@ def find_disambig_links(site, id_que, new_list, old_list):
 
         # Step 2: find links added
         link_dict = {}
-        for tuple in link_re.findall(remove_nottext('\n'.join(added_lines))):
+        for tuple in link_re.findall(remove_templates(remove_nottext('\n'.join(added_lines)))):
             c = contains_any(tuple[0], link_invalid)
             if c is not None:
                 # log: invalid
                 log(site, '检查User:%s于[[%s]]做出的版本号%s（[[Special:diff/%s|差异]]），时间戳%s的编辑时遇到异常：标题“<nowiki>%s</nowiki>”含有非法字符“%s”，请复查。' % (id_que[i][0], id_que[i][3], id_que[i][5], id_que[i][5], id_que[i][2], tuple[0], c), id_que[i][2])
                 continue
             link_dict[tuple[0]] = link_dict.get(tuple[0], 0) + 1
-        for tuple in link_re.findall(remove_nottext('\n'.join(removed_lines))):
+        for tuple in link_re.findall(remove_templates(remove_nottext('\n'.join(removed_lines)))):
             link_dict[tuple[0]] = link_dict.get(tuple[0], 0) - 1
 
         # Step 3: pick out disambig links
         dab_list = []
         for key, value in link_dict.items():
-            # ignore categories
+            # ignore categories, images, etc.
             if value > 0 and ns_re.search(key.lower()) is None:
                 link_buffer[count], link_owner[count] = key, i
                 count += 1
-                # full
                 if count == max_n:
                     rst = site.is_disambig(link_buffer)
                     for dab_index in range(len(rst)):
@@ -132,14 +133,18 @@ def find_disambig_links(site, id_que, new_list, old_list):
 
     return ret
 
+def update_ignore_templates(site):
+    return '|'.join(list(map(lambda s: s.strip(), [s for s in pycomment_re.sub('', site.get_text_by_title('User:WhitePhosphorus-bot/misc/dablink/IgnoringTemplates')).splitlines() if s])))
+
 def main(pwd):
-    global last_log
+    global last_log, ignoring_templates
     site = botsite.Site()
     site.client_login(pwd)
+    ignoring_templates = update_ignore_templates(site)
     id_que, revid_que, old_revid_que, notice_que = [], [], [], []
-    id_count = 0
+    id_count, handled_count = 0, 0
     latest_log = site.get_text_by_ids(['5571942'])[0].splitlines()[-1]
-    last_ts = re.findall(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', latest_log)[0]
+    last_ts = ts_re.findall(latest_log)[0]
     last_log = last_ts[:10]
     last_id = int(re.findall(r'Special:diff/(\d+)', latest_log)[0])
     while True:
@@ -150,6 +155,9 @@ def main(pwd):
             user, userid, timestamp, title, pageid, revid, old_revid = change['user'], change['userid'], change['timestamp'], change['title'], str(change['pageid']), change['revid'], str(change['old_revid'])
             if revid <= last_id:
                 continue
+            handled_count += 1
+            if handled_count & 0x3FF == 0:
+                ignoring_templates = update_ignore_templates(site)
             revid = str(revid)
             id_que.append((user, userid, timestamp, title, pageid, revid, old_revid))
             revid_que.append(revid)

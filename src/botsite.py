@@ -175,6 +175,7 @@ class Site:
         return t_dict
 
     def is_disambig(self, titles):
+        titles = [t for t in titles if t]
         l = len(titles)
         assert(l <= max_n)
         ret = [False] * l
