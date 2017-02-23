@@ -51,7 +51,7 @@ class Site:
         self.status = ''
         try:
             result = self.s.get(lang_api, params = req, headers = headers).json()
-        except:
+        except:# json.decoder.JSONDecodeError:
             print('api_get: Try again after %d sec...' % interval)
             print(req, target)
             time.sleep(interval)
@@ -165,6 +165,8 @@ class Site:
         return title
 
     def correct_dict(self, pattern, t_dict):
+        if pattern is None:
+            return t_dict
         for tuple in pattern:
             try:
                 t_dict[tuple['to']] = t_dict.pop(tuple['from'])
@@ -172,34 +174,30 @@ class Site:
                 continue
         return t_dict
 
-    def is_disambig(self, titles, t_dict):
-        #print('calling is_disambig')
+    def is_disambig(self, titles):
         l = len(titles)
         assert(l <= max_n)
         ret = [False] * l
         t_str = '|'.join(titles)
+        t_dict = {}
+        for i, title in enumerate(titles):
+            if t_dict.get(title) is None:
+                t_dict.update({title: [i]})
+            else:
+                t_dict[title].append(i)
         try:
-            r = self.api_get_long({'action': 'query', 'prop': 'pageprops', 'redirects': '1', 'converttitles': '1', 'ppprop': 'disambiguation', 'titles': t_str}, 'query')
+            r = self.api_post({'action': 'query', 'prop': 'pageprops', 'redirects': '1', 'converttitles': '1', 'ppprop': 'disambiguation', 'titles': t_str}).get('query')
         except requests.exceptions.ConnectionError as error:
             print(error)
-            print('is_disambig: try again:')
+            print('is_disambig: try again...')
             return self.is_disambig(titles, t_dict)
-        for chunk in r:
-            # correct names
-            if 'normalized' in chunk:
-                self.correct_dict(chunk['normalized'], t_dict)
-            if 'converted' in chunk:
-                self.correct_dict(chunk['converted'], t_dict)
-            if 'redirects' in chunk:
-                self.correct_dict(chunk['redirects'], t_dict)
-
-            for k, v in chunk['pages'].items():
-                try:
-                    tmp = 'pageprops' in v
-                    for index in t_dict[v['title']]:
-                        ret[index] = tmp
-                except:
-                    continue
+        self.correct_dict(r.get('normalized'), t_dict)
+        self.correct_dict(r.get('converted'), t_dict)
+        self.correct_dict(r.get('redirects'), t_dict)
+        for k, v in r.get('pages', {}).items():
+            tmp = 'disambiguation' in v.get('pageprops', [])
+            for index in t_dict[v.get('title', '')]:
+                ret[index] = tmp
         return ret
             
     def get_text_by_revid(self, revid_list):
@@ -211,7 +209,7 @@ class Site:
             r = self.api_get_long({'action': 'query', 'prop': 'revisions', 'rvprop': 'content|ids', 'revids': '|'.join(revid_list)}, 'query')
         except requests.exceptions.ConnectionError as error:
             print(error)
-            print('get_text_by_revid: try again:')
+            print('get_text_by_revid: try again...')
             return self.get_text_by_revid(revid_list)
 
         for chunk in r:
@@ -238,7 +236,7 @@ class Site:
             r = self.api_get_long({'action': 'query', 'prop': 'revisions', 'rvprop': 'content', 'pageids': '|'.join(id_list)}, 'query')
         except requests.exceptions.ConnectionError as error:
             print(error)
-            print('get_text_by_ids: try again:')
+            print('get_text_by_ids: try again...')
             return self.get_text_by_ids(id_list)
 
         for chunk in r:
@@ -277,12 +275,23 @@ class Site:
         temp = r.get(pageid, '')
         self.ts = temp['revisions'][0]['timestamp']
         return temp['revisions'][0]['*'] if temp else ''
-    '''
-    def text_and_templates_by_id(self, pageid):
-        req = {'action': 'parse', 'pageid': pageid, 'prop': 'templates|wikitext'}
-        r = self.api_get(req, 'parse')
-        return r.get('wikitext', {}).get('*', ''), r.get('templates', [{}])
-    '''
+    
+    def template_in_page(self, names, title=None, text=None):
+        assert((title is None) != (text is None))
+        if isinstance(names, str):
+            names = [names]
+        if text is None:
+            req = {'action': 'parse', 'page': title, 'prop': 'templates'}
+        else:
+            req = {'action': 'parse', 'text': text, 'prop': 'templates', 'contentmodel': 'wikitext'}
+        #r = self.api_get(req, 'parse')
+        r = self.api_post(req).get('parse')
+        templates = r.get('templates', [{}])
+        for t in templates:
+            if t.get('*')[9:] in names:
+                return True
+        return False
+    
     def editcount(self, username):
         r = self.api_get({'action': 'query', 'list': 'users', 'ususers': username, 'usprop': 'editcount|groups'}, 'query')
         groups = r.get('users', [{}])[0].get('groups')
@@ -463,7 +472,7 @@ class Site:
         return False
 
 def main():
-    pass
+    print(Site().is_disambig(['生日快乐'] * 250 + ['機動戰士GUNDAM_鐵血的孤兒登場機體列表'] * 250))
 
 if __name__ == '__main__':
     main()

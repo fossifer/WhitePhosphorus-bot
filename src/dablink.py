@@ -1,4 +1,5 @@
 # TODO: {{afd|[[dablink]]}}
+# TODO: {{redirect3|[[dablink]]}} (diff=43317348)
 
 import time
 import re
@@ -15,7 +16,7 @@ nobots_re = re.compile(r'{{[\s\r\n]*[Nn]obots[\s\r\n]*}}|{{[\s\r\n]*[Bb]ots[\s\r
 allow_re = re.compile(r'{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*allow[\s\r\n]*=[\s\r\n]*([\s\S]*?)}}')
 deny_re = re.compile(r'{{[\s\r\n]*[Bb]ots[\s\r\n]*\|[\s\r\n]*deny[\s\r\n]*=[\s\r\n]*([\s\S]*?)}}')
 
-dab_needed = r'(?!\s*[\r\n]?{{[\s\r\n]*需要消歧[义義])'
+dab_needed = r'(?!\s*[\r\n]?{{[\s\r\n]*(需要消歧[义義]|連結消歧義|链接消歧义|[Dd]isambiguation needed))' # update here when a new direct page is created
 link_re = re.compile(r'\[\[:?(.*?)(\|.*?)?\]\]')
 link_t_re = re.compile(r'\[\[:?((?:{0}.)*?)(\|(?:{0}.)*?)?\]\]{0}'.format(dab_needed))
 link_invalid = '<>[]|{}'
@@ -83,8 +84,11 @@ def find_disambig_links(site, id_que, new_list, old_list):
     l = len(new_list)
     assert(l <= max_n)
     ret = [[] for i in range(l)]
-    link_buffer, link_owner, count, link_index = [''] * 75, [''] * 75, 0, {}
+    link_buffer, link_owner, count = [''] * max_n, [''] * max_n, 0
     for i in range(l):
+        old_list[i] = old_list[i]
+        new_list[i] = new_list[i]
+        
         # Step 1: find diff between new and old
         diff = difflib.unified_diff(old_list[i].splitlines(), new_list[i].splitlines(), lineterm='')
         removed_lines, added_lines = [], []
@@ -112,20 +116,16 @@ def find_disambig_links(site, id_que, new_list, old_list):
             # ignore categories
             if value > 0 and ns_re.search(key.lower()) is None:
                 link_buffer[count], link_owner[count] = key, i
-                if link_index.get(key, -1) == -1:
-                    link_index.update({key: [count]})
-                else:
-                    link_index[key].append(count)
                 count += 1
                 # full
-                if count == 75:
-                    rst = site.is_disambig(link_buffer, link_index)
+                if count == max_n:
+                    rst = site.is_disambig(link_buffer)
                     for dab_index in range(len(rst)):
                         if rst[dab_index]:
                             ret[link_owner[dab_index]].append('[[%s]]' % link_buffer[dab_index])
-                    link_buffer, link_owner, count, link_index = [''] * 75, [''] * 75, 0, {}
+                    link_buffer, link_owner, count = [''] * max_n, [''] * max_n, 0
     if count > 0:
-        rst = site.is_disambig(link_buffer, link_index)
+        rst = site.is_disambig(link_buffer)
         for dab_index in range(len(rst)):
             if rst[dab_index]:
                 ret[link_owner[dab_index]].append('[[%s]]' % link_buffer[dab_index])
