@@ -82,7 +82,6 @@ def remove_templates(site, text):
     return re.sub(r'{{[\s\r\n]*(%s)\|[\s\S]*?}}' % ignoring_templates, '', text)
 
 def find_disambig_links(site, id_que, new_list, old_list):
-    print(new_list[0], old_list[0])
     l = len(new_list)
     assert(l <= max_n)
     ret = [[] for i in range(l)]
@@ -102,14 +101,14 @@ def find_disambig_links(site, id_que, new_list, old_list):
 
         # Step 2: find links added
         link_dict = {}
-        for tuple in link_re.findall(remove_templates(remove_nottext('\n'.join(added_lines)))):
+        for tuple in link_re.findall(remove_templates(site, remove_nottext('\n'.join(added_lines)))):
             c = contains_any(tuple[0], link_invalid)
             if c is not None:
                 # log: invalid
                 log(site, '检查User:%s于[[%s]]做出的版本号%s（[[Special:diff/%s|差异]]），时间戳%s的编辑时遇到异常：标题“<nowiki>%s</nowiki>”含有非法字符“%s”，请复查。' % (id_que[i][0], id_que[i][3], id_que[i][5], id_que[i][5], id_que[i][2], tuple[0], c), id_que[i][2])
                 continue
             link_dict[tuple[0]] = link_dict.get(tuple[0], 0) + 1
-        for tuple in link_re.findall(remove_templates(remove_nottext('\n'.join(removed_lines)))):
+        for tuple in link_re.findall(remove_templates(site, remove_nottext('\n'.join(removed_lines)))):
             link_dict[tuple[0]] = link_dict.get(tuple[0], 0) - 1
 
         # Step 3: pick out disambig links
@@ -252,5 +251,4 @@ def main(pwd):
         last_ts, last_id = change['timestamp'], change['revid']
 
 if __name__ == '__main__':
-    site = botsite.Site()
     main(sys.argv[1])
