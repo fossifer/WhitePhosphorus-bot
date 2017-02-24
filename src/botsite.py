@@ -2,6 +2,7 @@ import re
 import time
 import json
 import datetime
+import collections
 import requests
 import exception
 
@@ -45,10 +46,7 @@ def check_csrf(f):
 class Site:
     def __init__(self):
         self.s = requests.Session()
-        self.tokens = {}
-        self.flow_ids = {}
-        self.status = ''
-        self.ts = ''
+        self.tokens, self.flow_ids, self.status, self.ts = {}, {}, '', ''
         self.pwd = ''
 
     def api_get(self, req, target, interval=1):
@@ -118,7 +116,7 @@ class Site:
                 lag_sec = maxlag if lag_m is None else float(lag_m.group(1))
                 print('Try again after %d sec...' % lag_sec)
                 time.sleep(lag_sec)
-                return self.api_post(self, data, lag_sec)
+                return self.api_post(data, lag_sec)
             self.status = code
         return rst
 
@@ -156,7 +154,7 @@ class Site:
         else:
             raise exception.Error(result.get('message', 'Login Failed'))
 
-    # correct name, assuming there are no double redirects etc.
+    # TODO: double redirects
     def exact_title(self, title):
         r = self.api_get({'action': 'query', 'titles': title, 'redirects': '1',
                          'converttitles': '1'}, 'query')
@@ -179,16 +177,11 @@ class Site:
         return t_dict
 
     def is_disambig(self, titles):
-        titles = [t for t in titles if t]
-        # assert(len(titles) <= max_n)
         ret = [False] * len(titles)
         t_str = '|'.join(titles)
-        t_dict = {}
+        t_dict = collections.defaultdict(list)
         for i, title in enumerate(titles):
-            if t_dict.get(title) is None:
-                t_dict.update({title: [i]})
-            else:
-                t_dict[title].append(i)
+            t_dict[title].append(i)
         try:
             r = self.api_post({'action': 'query', 'prop': 'pageprops',
                                'redirects': '1', 'converttitles': '1',
@@ -208,7 +201,6 @@ class Site:
         return ret
 
     def get_text_by_revid(self, revid_list):
-        # assert(len(revid_list) <= max_n)
         d = dict(zip(revid_list, [i for i in range(len(revid_list))]))
         ret = [''] * len(revid_list)
         try:
@@ -236,7 +228,6 @@ class Site:
 
     # TODO: duplicate
     def get_text_by_ids(self, id_list):
-        # assert(len(id_list) <= max_n)
         ret = [''] * len(id_list)
         d = dict(zip(id_list, [i for i in range(l)]))
         try:
@@ -360,13 +351,13 @@ class Site:
              section=None, sectiontitle=None, basets=None, startts=None,
              print_only=False, captchaid=None, captchaword=None, interval=6):
         assert((title is None) != (pageid is None))
+        assert((captchaid is None) == (captchaword is None))
         if print_only:
             # print('Editing page: '+('#'+pageid if title is None else title))
             print(text)
             return None
         if check_title:
             title = self.exact_title(title)
-        assert((captchaid is None) == (captchaword is None))
         data = {'action': 'edit', 'text': text,
                 'summary': summary, 'token': self.tokens['csrf']}
         if title is None:
@@ -477,7 +468,6 @@ class Site:
 
     def has_dup_rev(self, pageid, revid, limit=50):
         limit += 1
-        assert(limit < 5001)
         rst = self.api_get({'action': 'query', 'prop': 'revisions',
                             'pageids': pageid, 'rvprop': 'ids|size',
                             'rvlimit': str(limit), 'rvstartid': revid}, 'query')
@@ -496,7 +486,7 @@ class Site:
                                 'revisions', 'revids': revid,
                                 'rvdiffto': sus_id}, 'query')
             if not rst.get('pages', {}).get(pageid, {}).get('revisions', [{}])[0].get('diff', {}).get('*', '喵'):
-                return True
+                    return True
         return False
 
 

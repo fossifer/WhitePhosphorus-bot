@@ -7,17 +7,16 @@ import requests
 import difflib
 import botsite
 from botsite import remove_nottext, cur_timestamp
-import exception
 
 nobots_re = re.compile(r'{{\s*[Nn]obots\s*}}|{{\s*[Bb]ots\s*\|\s*allow\s*=\s*none\s*}}|{{[Bb]ots\s*\|\s*deny\s*=\s*all\s*}}|{{\s*[Bb]ots\s*\|\s*optout\s*=\s*all\s*}}')
 allow_re = re.compile(r'{{\s*[Bb]ots\s*\|\s*allow\s*=\s*([\s\S]*?)}}')
 deny_re = re.compile(r'{{\s*[Bb]ots\s*\|\s*deny\s*=\s*([\s\S]*?)}}')
 
-dab_needed = r'(?![ \t]*[\r\n]?{{\s*(需要消歧[义義]|連結消歧義|链接消歧义|[Dd]isambiguation needed))' # update here when a new direct page is created
+dab_needed = r'(?![ \t]*[\r\n]?{{\s*(需要消歧[义義]|連結消歧義|链接消歧义|[Dd]isambiguation needed))'  # update here when a new direct page is created
 link_re = re.compile(r'\[\[:?(.*?)(\|.*?)?\]\]')
 link_t_re = re.compile(r'\[\[:?((?:{0}.)*?)(\|(?:{0}.)*?)?\]\]{0}'.format(dab_needed))
 link_invalid = '<>[]|{}'
-ns_re = re.compile(r'^category\s*:|^分[类類]\s*:|^file\s*:|^image\s*:|^文件\s*:|^[档檔]案\s*:') # do not forget to use lower()
+ns_re = re.compile(r'^category\s*:|^分[类類]\s*:|^file\s*:|^image\s*:|^文件\s*:|^[档檔]案\s*:')  # do not forget to use lower()
 section_re = re.compile(r'(^|[^=])==(?P<title>[^=].*?[^=])==([^=]|$)')
 sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]（\[\[User talk:WhitePhosphorus\|给主人留言\]\]） [0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日 \([日一二三四五六]\) [0-9]{2}:[0-9]{2} \(UTC\)')
 ts_re = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
@@ -25,31 +24,33 @@ pycomment_re = re.compile(r'[ \t]*#.*?[\r\n]')
 
 last_log, ignoring_templates = '', ''
 
-max_n = 500 # nonbots 50, bots 500
+max_n = 500  # nonbots 50, bots 500
 
 bot_name, bot_name_l = 'WhitePhosphorus-bot', 'whitePhosphorus-bot'
 
+
 def judge_allowed(page_text):
     '''
-        if following patterns are found in a user talk page, the bot is denied:
-        {{nobots}},
-        {{bots|allow=none}},
-        {{bots|allow=<botlist>}} and bot_name not in <botlist>,
-        {{bots|deny=all}},
-        {{bots|deny=<botlist>}} and bot_name in <botlist>
-        {{bots|optout=all}}
+    if following patterns are found in a user talk page, then the bot is denied:
+    {{nobots}},
+    {{bots|allow=none}},
+    {{bots|allow=<botlist>}} and bot_name not in <botlist>,
+    {{bots|deny=all}},
+    {{bots|deny=<botlist>}} and bot_name in <botlist>
+    {{bots|optout=all}}
     '''
     # without <botlist>
     if nobots_re.findall(page_text):
         return False
-    
+
     # with <botlist>
     allow_list, deny_list = allow_re.findall(page_text), deny_re.findall(page_text)
     if not (allow_list or deny_list):
         return True
     a, d = ''.join(allow_list), ''.join(deny_list)
-    # contradictory patterns considered allowing
+    # contradictory patterns are considered allowing
     return (bot_name in a or bot_name_l in a) or (d and not (bot_name in d or bot_name_l in d or 'all' in d))
+
 
 def contains_any(src, pat):
     for c in pat:
@@ -57,43 +58,52 @@ def contains_any(src, pat):
             return c
     return None
 
+
 def log(site, text, ts, red=False):
     global last_log
     text = '\n* [~~~~~] ' + text
     if red:
         text = '<span style="color:red">%s</span>' % text
     if last_log == ts[:10]:
-        site.edit(text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True, append=True)
-    else:
-        # delete out-dated log and add a new section
-        cur_text = site.get_text_by_ids(['5571942'])[0]
-        strip_start = cur_text.find('== ')
-        today = datetime.datetime.strptime(ts[:10], '%Y-%m-%d')
-        last = today - datetime.timedelta(days=6)
-        strip_end = cur_text.find('== %s ==' % (last.strftime('%Y-%m-%d')))
-        log_text = '\n== %s ==' % ts[:10] + text
-        if strip_start == -1 or strip_end == -1:
-            site.edit(log_text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True, append=True)
-            return None
-        site.edit(cur_text[:strip_start] + cur_text[strip_end:] + log_text, '机器人：消歧义内链日志记录。', title='User:WhitePhosphorus-bot/log/dablink', bot=True)
+        site.edit(text, '机器人：消歧义内链日志记录。',
+                  title='User:WhitePhosphorus-bot/log/dablink',
+                  bot=True, append=True)
+        last_log = ts[:10]
+        return None
+    # delete out-dated log and add a new section
+    cur_text = site.get_text_by_ids(['5571942'])[0]
+    strip_start = cur_text.find('== ')
+    today = datetime.datetime.strptime(ts[:10], '%Y-%m-%d')
+    last = today - datetime.timedelta(days=6)
+    strip_end = cur_text.find('== %s ==' % (last.strftime('%Y-%m-%d')))
+    log_text = '\n== %s ==' % ts[:10] + text
+    if strip_start == -1 or strip_end == -1:
+        site.edit(log_text, '机器人：消歧义内链日志记录。',
+                  title='User:WhitePhosphorus-bot/log/dablink',
+                  bot=True, append=True)
+        return None
+    site.edit(cur_text[:strip_start] + cur_text[strip_end:] + log_text,
+              '机器人：消歧义内链日志记录。',
+              title='User:WhitePhosphorus-bot/log/dablink', bot=True)
     last_log = ts[:10]
+
 
 def remove_templates(site, text):
     return re.sub(r'{{[\s\r\n]*(%s)\|[\s\S]*?}}' % ignoring_templates, '', text)
 
+
 def find_disambig_links(site, id_que, new_list, old_list):
-    l = len(new_list)
-    assert(l <= max_n)
-    ret = [[] for i in range(l)]
+    ret = [[] for i in range(len(new_list))]
     link_buffer, link_owner, count = [''] * max_n, [''] * max_n, 0
-    for i in range(l):
+    for i in range(len(new_list)):
         old_list[i] = old_list[i]
         new_list[i] = new_list[i]
         
         # Step 1: find diff between new and old
-        diff = difflib.unified_diff(old_list[i].splitlines(), new_list[i].splitlines(), lineterm='')
+        diff = difflib.unified_diff(old_list[i].splitlines(),
+                                    new_list[i].splitlines(), lineterm='')
         removed_lines, added_lines = [], []
-        for line in list(diff)[2:]: # first 2 lines are '---' and '+++'
+        for line in list(diff)[2:]:  # first 2 lines are '---' and '+++'
             if line[0] == '-':
                 removed_lines.append(line)
             elif line[0] == '+':
@@ -116,24 +126,26 @@ def find_disambig_links(site, id_que, new_list, old_list):
         for key, value in link_dict.items():
             # ignore categories, images, etc.
             if value > 0 and ns_re.search(key.lower()) is None:
-                link_buffer[count], link_owner[count] = key, i
-                count += 1
-                if count == max_n:
+                link_buffer.append(key)
+                link_owner.append(i)
+                if len(link_owner) == max_n:
                     rst = site.is_disambig(link_buffer)
-                    for dab_index in range(len(rst)):
-                        if rst[dab_index]:
-                            ret[link_owner[dab_index]].append('[[%s]]' % link_buffer[dab_index])
-                    link_buffer, link_owner, count = [''] * max_n, [''] * max_n, 0
-    if count > 0:
+                    for di in range(len(rst)):
+                        if rst[di]:
+                            ret[link_owner[di]].append('[[%s]]' % link_buffer[di])
+                    link_buffer, link_owner = [], []
+    if link_buffer:
         rst = site.is_disambig(link_buffer)
-        for dab_index in range(len(rst)):
-            if rst[dab_index]:
-                ret[link_owner[dab_index]].append('[[%s]]' % link_buffer[dab_index])
+        for di in range(len(rst)):
+            if rst[di]:
+                ret[link_owner[di]].append('[[%s]]' % link_buffer[di])
 
     return ret
 
+
 def update_ignore_templates(site):
     return '|'.join(list(map(lambda s: s.strip(), [s for s in pycomment_re.sub('', site.get_text_by_title('User:WhitePhosphorus-bot/misc/dablink/IgnoringTemplates')).splitlines() if s])))
+
 
 def main(pwd):
     global last_log, ignoring_templates
@@ -147,7 +159,7 @@ def main(pwd):
     last_log = last_ts[:10]
     last_id = int(re.findall(r'Special:diff/(\d+)', latest_log)[0])
     while True:
-        # Step 1: get the wikitexts edited via RecentChange log
+        # Step 1: query wikitexts changed via RecentChange log
         for change in site.rc_generator(last_ts):
             if '!nobot!' in change['comment'] or change['user'] == bot_name:
                 continue
@@ -161,30 +173,30 @@ def main(pwd):
             id_que.append((user, userid, timestamp, title, pageid, revid, old_revid))
             revid_que.append(revid)
             old_revid_que.append(old_revid)
-            #print("'%s', %s" % (timestamp, revid))
             if len(id_que) == max_n:
                 break
         if not id_que:
-            #print('Information: Nothing to do, sleep for 1 sec.')
             time.sleep(1)
             continue
         new_list = site.get_text_by_revid(revid_que)
         old_list = site.get_text_by_revid(old_revid_que)
 
-        # Step 2: find the diffs and pick out disambig links added
+        # Step 2: find diffs and pick out disambig links added
         rst = find_disambig_links(site, id_que, new_list, old_list)
 
-        # Step 3: Log and go to next loop
+        # Step 3: Log, notice and resume next
         for i, r in enumerate(rst):
             if not r:
                 continue
-            # add {{需要消歧义}} to the article
+            # {{需要消歧义}}
             while True:
                 # try to edit again and again
                 text = site.get_text_by_title(id_que[i][3], ts=True)
-                # s.group(1) and ...: considering uncompleted links '[[]]'
+                # s.group(1) and ...: ignoring uncompleted links '[[]]'
                 new_text = link_t_re.sub(lambda s: s.group(0) + '{{需要消歧义|date=%s年%d月}}' % (id_que[i][2][:4], int(id_que[i][2][5:7])) if s.group(1) and '[[%s]]' % s.group(1) in r else s.group(0), text)
-                site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}', title=id_que[i][3], bot=False, basets=site.ts, startts=site.ts)
+                site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}',
+                          title=id_que[i][3], bot=False,
+                          basets=site.ts, startts=site.ts)
                 if site.status != 'editconflict':
                     break
 
@@ -193,19 +205,28 @@ def main(pwd):
                 continue
             elif site.status:
                 log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3], site.status, '、'.join(r), id_que[i][3]), site.ts, red=True)
-    
+
             # judge whether to notice user or not
             user_talk = 'User talk:%s' % id_que[i][0]
-            [talk_text, is_flow] = site.get_text_by_title(user_talk, detect_flow=True, ts=True)
+            [talk_text, is_flow] = site.get_text_by_title(user_talk,
+                                                          detect_flow=True,
+                                                          ts=True)
             will_notify = site.editcount(id_que[i][0]) >= 100 and judge_allowed(talk_text) and not site.has_dup_rev(id_que[i][4], id_que[i][5])
 
-            [notice, item, title, summary] = site.get_text_by_ids(['5574512', '5574516', '5575182', '5575256'])
+            [notice, item, title, summary] = site.get_text_by_ids(['5574512',
+                                                                   '5574516',
+                                                                   '5575182',
+                                                                   '5575256'])
             year, month, day = id_que[i][2][:4], int(id_que[i][2][5:7]), int(id_que[i][2][8:10])
             title = title % (year, month, day)
-            item = item % (id_que[i][3], '、'.join(r), id_que[i][5], id_que[i][3].replace(' ', '_'))
-            
+            item = item % (id_que[i][3], '、'.join(r), id_que[i][5],
+                           id_que[i][3].replace(' ', '_'))
+
             if not will_notify:
-                log(site, '检查User:%s（不通知）于%s的编辑时发现%s' % (id_que[i][0], id_que[i][2], item[2:]), id_que[i][2])
+                log(site, '检查User:%s（不通知）于%s的编辑时发现%s' % (id_que[i][0],
+                                                                  id_que[i][2],
+                                                                  item[2:]),
+                    id_que[i][2])
                 continue
 
             # notice
@@ -218,22 +239,28 @@ def main(pwd):
             else:
                 lines = talk_text.splitlines(True)
                 s, sec = 0, 0
-                for l, line in enumerate(lines):
+                for li, line in enumerate(lines):
                     m = section_re.match(line)
                     if m is not None:
                         s += 1
                         if m.group('title').strip() == title:
                             sectitle, sec = m.group('title'), s
                     if notice.splitlines()[-1] in line and sec != 0:
-                        lines[l] = sign_re.sub('--~~~~', line)
-                        lines.insert(l, item+'\n\n')
-                        site.edit(''.join(lines), '/* %s */ ' % sectitle + summary, title=user_talk, basets=site.ts, startts=site.ts)
+                        lines[li] = sign_re.sub('--~~~~', line)
+                        lines.insert(li, item+'\n\n')
+                        site.edit(''.join(lines),
+                                  '/* %s */ %s' % (sectitle, summary),
+                                  title=user_talk,
+                                  basets=site.ts, startts=site.ts)
                         break
                 else:
-                    site.edit(notice % item+' --~~~~', summary, title=user_talk, append=True, section='new', sectiontitle=title, nocreate=False)
+                    site.edit(notice % item+' --~~~~', summary, title=user_talk,
+                              append=True, section='new', sectiontitle=title,
+                              nocreate=False)
 
             # log
-            log(site, '检查User:%s（%s通知）于%s的编辑时发现%s' % (id_que[i][0], '未' if site.status else '已', id_que[i][2], item[2:]), id_que[i][2], red=site.status)
+            log(site, '检查User:%s（%s通知）于%s的编辑时发现%s' % (id_que[i][0], '未' if site.status else '已', id_que[i][2], item[2:]),
+                id_que[i][2], red=site.status)
 
         id_count = 0
         id_que, revid_que, old_revid_que = [], [], []
@@ -249,6 +276,7 @@ def main(pwd):
                     del tmp[k]
             site.flow_ids = tmp
         last_ts, last_id = change['timestamp'], change['revid']
+
 
 if __name__ == '__main__':
     main(sys.argv[1])
