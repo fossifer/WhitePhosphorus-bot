@@ -94,7 +94,7 @@ def remove_templates(site, text):
 
 def find_disambig_links(site, id_que, new_list, old_list):
     ret = [[] for i in range(len(new_list))]
-    link_buffer, link_owner, count = [''] * max_n, [''] * max_n, 0
+    link_buffer, link_owner, count = [], [], 0
     for i in range(len(new_list)):
         old_list[i] = old_list[i]
         new_list[i] = new_list[i]
@@ -105,10 +105,10 @@ def find_disambig_links(site, id_que, new_list, old_list):
         removed_lines, added_lines = [], []
         for line in list(diff)[2:]:  # first 2 lines are '---' and '+++'
             if line[0] == '-':
-                removed_lines.append(line)
+                removed_lines.append(line[1:])
             elif line[0] == '+':
-                added_lines.append(line)
-
+                added_lines.append(line[1:])
+    
         # Step 2: find links added
         link_dict = {}
         for tuple in link_re.findall(remove_templates(site, remove_nottext('\n'.join(added_lines)))):
@@ -117,9 +117,11 @@ def find_disambig_links(site, id_que, new_list, old_list):
                 # log: invalid
                 log(site, '检查User:%s于[[%s]]做出的版本号%s（[[Special:diff/%s|差异]]），时间戳%s的编辑时遇到异常：标题“<nowiki>%s</nowiki>”含有非法字符“%s”，请复查。' % (id_que[i][0], id_que[i][3], id_que[i][5], id_que[i][5], id_que[i][2], tuple[0], c), id_que[i][2])
                 continue
-            link_dict[tuple[0]] = link_dict.get(tuple[0], 0) + 1
+            if tuple[0]:
+                link_dict[tuple[0]] = link_dict.get(tuple[0], 0) + 1
         for tuple in link_re.findall(remove_templates(site, remove_nottext('\n'.join(removed_lines)))):
-            link_dict[tuple[0]] = link_dict.get(tuple[0], 0) - 1
+            if tuple[0]:
+                link_dict[tuple[0]] = link_dict.get(tuple[0], 0) - 1
 
         # Step 3: pick out disambig links
         dab_list = []
@@ -130,14 +132,14 @@ def find_disambig_links(site, id_que, new_list, old_list):
                 link_owner.append(i)
                 if len(link_owner) == max_n:
                     rst = site.is_disambig(link_buffer)
-                    for di in range(len(rst)):
-                        if rst[di]:
+                    for di, r in enumerate(rst):
+                        if r:
                             ret[link_owner[di]].append('[[%s]]' % link_buffer[di])
                     link_buffer, link_owner = [], []
     if link_buffer:
         rst = site.is_disambig(link_buffer)
-        for di in range(len(rst)):
-            if rst[di]:
+        for di, r in enumerate(rst):
+            if r:
                 ret[link_owner[di]].append('[[%s]]' % link_buffer[di])
 
     return ret
@@ -161,16 +163,17 @@ def main(pwd):
     while True:
         # Step 1: query wikitexts changed via RecentChange log
         for change in site.rc_generator(last_ts):
+            if change['revid'] <= last_id:
+                continue
+            last_ts, last_id = change['timestamp'], change['revid']
             if change['type'] == 'log':
                 if change['logtype'] != 'move':
                     continue
-                user, userid, timestamp, title, pageid, revid, old_revid = '', '', change['timestamp'], change.get['logparams']['target_title'], str(change['pageid']), change['revid'], '0'
+                user, userid, timestamp, title, pageid, revid, old_revid = '', '', change['timestamp'], change['logparams']['target_title'], str(change['pageid']), change['revid'], '0'
             else:
                 if '!nobot!' in change['comment'] or change['user'] == bot_name:
                     continue
                 user, userid, timestamp, title, pageid, revid, old_revid = change['user'], change['userid'], change['timestamp'], change['title'], str(change['pageid']), change['revid'], str(change['old_revid'])
-            if revid <= last_id:
-                continue
             handled_count += 1
             if handled_count & 0x3FF == 0:
                 ignoring_templates = update_ignore_templates(site)
@@ -183,6 +186,7 @@ def main(pwd):
         if not id_que:
             time.sleep(1)
             continue
+
         new_list = site.get_text_by_revid(revid_que)
         old_list = site.get_text_by_revid(old_revid_que)
 
@@ -282,7 +286,6 @@ def main(pwd):
                 if title in k:
                     del tmp[k]
             site.flow_ids = tmp
-        last_ts, last_id = change['timestamp'], change['revid']
 
 
 if __name__ == '__main__':
