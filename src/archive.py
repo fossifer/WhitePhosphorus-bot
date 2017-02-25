@@ -19,7 +19,7 @@ tested_re = re.compile(r'%s(.*?)$' % (tested_title), re.DOTALL)
 section_re = [request_re, testing_re, tested_re]
 subpage_re = re.compile(r'{{[\s\n\r]*(.*?)[\s\n\r]*}}', re.DOTALL)
 
-delete_re = re.compile(r'<s>[\s\S]*?</s>')
+delete_re = re.compile(r'<s>[\s\S]*?</s>|<del>[\s\S]*?</del>')
 
 group_notchange = ['OperatorAssistanceNeeded', 'BAGAssistanceNeeded']
 group_testing = ['BotTrial', 'BotExtendedTrial']
