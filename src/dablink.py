@@ -161,9 +161,14 @@ def main(pwd):
     while True:
         # Step 1: query wikitexts changed via RecentChange log
         for change in site.rc_generator(last_ts):
-            if '!nobot!' in change['comment'] or change['user'] == bot_name:
-                continue
-            user, userid, timestamp, title, pageid, revid, old_revid = change['user'], change['userid'], change['timestamp'], change['title'], str(change['pageid']), change['revid'], str(change['old_revid'])
+            if change['type'] == 'log':
+                if change['logtype'] != 'move':
+                    continue
+                user, userid, timestamp, title, pageid, revid, old_revid = '', '', change['timestamp'], change.get['logparams']['target_title'], str(change['pageid']), change['revid'], '0'
+            else:
+                if '!nobot!' in change['comment'] or change['user'] == bot_name:
+                    continue
+                user, userid, timestamp, title, pageid, revid, old_revid = change['user'], change['userid'], change['timestamp'], change['title'], str(change['pageid']), change['revid'], str(change['old_revid'])
             if revid <= last_id:
                 continue
             handled_count += 1
@@ -207,6 +212,8 @@ def main(pwd):
                 log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3], site.status, '、'.join(r), id_que[i][3]), site.ts, red=True)
 
             # judge whether to notice user or not
+            if not id_que[i][0]:
+                continue
             user_talk = 'User talk:%s' % id_que[i][0]
             [talk_text, is_flow] = site.get_text_by_title(user_talk,
                                                           detect_flow=True,

@@ -229,7 +229,7 @@ class Site:
     # TODO: duplicate
     def get_text_by_ids(self, id_list):
         ret = [''] * len(id_list)
-        d = dict(zip(id_list, [i for i in range(l)]))
+        d = dict(zip(id_list, [i for i in range(len(id_list))]))
         try:
             r = self.api_get_long({'action': 'query', 'prop': 'revisions',
                                    'rvprop': 'content',
@@ -301,21 +301,15 @@ class Site:
                           'ususers': username,
                           'usprop': 'editcount|groups'}, 'query')
         groups = r.get('users', [{}])[0].get('groups')
-        if groups is None:
-            print('=========editcount=========')
-            print(r)
-            print(username)
-            print('===========================')
-            return 0
-        if 'bot' in groups or 'flood' in groups:
+        if groups is None or 'bot' in groups or 'flood' in groups:
             return 0
         return r.get('users', [{}])[0].get('editcount', 0)
 
     def rc_generator(self, rcstart):
-        rcprop = 'user|userid|timestamp|title|ids|comment'
+        rcprop = 'user|userid|timestamp|title|ids|comment|loginfo'
         for rc in self.api_get_long({'action': 'query', 'list': 'recentchanges',
                                      'rcstart': rcstart, 'rcdir': 'newer',
-                                     'rcnamespace': '0', 'rctype': 'edit|new',
+                                     'rcnamespace': '0', 'rctype': 'edit|new|log',
                                      'rcshow': '!redirect',
                                      'rcprop': rcprop,
                                      'rclimit': 'max'}, 'query'):
