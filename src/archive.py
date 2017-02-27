@@ -1,7 +1,6 @@
 import re
 import sys
 import datetime
-import requests
 import botsite
 from botsite import remove_nottext, cur_timestamp
 

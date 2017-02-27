@@ -15,7 +15,7 @@ lang_api = 'https://%s.wikipedia.org/w/api.php' % lang
 headers = {'User-Agent': "DZLWikiBot/1.0 (https://zh.wikipedia.org/w/User_talk:WhitePhosphorus) BasedOnPython/3.6"}
 
 comment_re = re.compile(r'<!--[\s\S]*?-->')
-nowiki_re = re.compile(r'<nowiki>[\s\S]*?</nowiki>')
+nowiki_re = re.compile(r'<nowiki>[\s\S]*?</nowiki>|<pre>[\s\S]*?</pre>')
 
 bot_name = 'WhitePhosphorus-bot'
 
@@ -38,7 +38,8 @@ def check_csrf(f):
         if not site.check_user():
             site.client_login()
             if 'csrf' not in site.tokens:
-                site.tokens['csrf'] = site.query_tokens('csrf').get('csrftoken')
+                site.tokens['csrf'] = \
+                    site.query_tokens('csrf').get('csrftoken')
         return f(*args, **kwargs)
     return wrapper
 
@@ -76,7 +77,8 @@ class Site:
             c_req = req.copy()
             c_req.update(last_cont)
             try:
-                result = self.s.get(lang_api, params=c_req, headers=headers).json()
+                result = self.s.get(lang_api,
+                                    params=c_req, headers=headers).json()
             except:
                 print('api_get_long: Try again after %d sec...' % interval)
                 print(req, target, last_c)
@@ -126,11 +128,13 @@ class Site:
         return self.api_get(req, 'query').get('tokens')
 
     def check_user(self):
-        r = self.s.get('https://zh.wikipedia.org/w/api.php?action=query&format=json&assert=user').json()
+        r = self.s.get('https://zh.wikipedia.org/w/api.php?' \
+                       'action=query&format=json&assert=user').json()
         return 'error' not in r
 
     def check_bot(self):
-        r = self.s.get('https://zh.wikipedia.org/w/api.php?action=query&format=json&assert=bot').json()
+        r = self.s.get('https://zh.wikipedia.org/w/api.php?' \
+                       'action=query&format=json&assert=bot').json()
         return 'error' not in r
 
     def client_login(self, pwd=None):
@@ -307,9 +311,11 @@ class Site:
 
     def rc_generator(self, rcstart):
         rcprop = 'user|userid|timestamp|title|ids|comment|loginfo'
-        for rc in self.api_get_long({'action': 'query', 'list': 'recentchanges',
+        for rc in self.api_get_long({'action': 'query',
+                                     'list': 'recentchanges',
                                      'rcstart': rcstart, 'rcdir': 'newer',
-                                     'rcnamespace': '0', 'rctype': 'edit|new|log',
+                                     'rcnamespace': '0',
+                                     'rctype': 'edit|new|log',
                                      'rcshow': '!redirect',
                                      'rcprop': rcprop,
                                      'rclimit': 'max'}, 'query'):
@@ -330,10 +336,15 @@ class Site:
             for page in cat['categorymembers']:
                 yield str(page['pageid'])
 
-    def what_embeds_it(self, pageid):
-        for rst in self.api_get_long({'action': 'query', 'list': 'embeddedin',
-                                      'eipageid': pageid,
-                                      'einamespace': '0'}, 'query'):
+    def what_embeds_it(self, pageid=None, title=None, ns='0'):
+        assert((pageid is None) != (title is None))
+        req = {'action': 'query', 'list': 'embeddedin', 'einamespace': ns}
+        if title is None:
+            req['eipageid'] = str(pageid)
+        else:
+            req['eititle'] = title
+        
+        for rst in self.api_get_long(req, 'query'):
             if not rst['embeddedin']:
                 raise StopIteration()
             for page in rst['embeddedin']:
@@ -378,12 +389,14 @@ class Site:
             data['captchaid'], data['captchaword'] = captchaid, captchaword
 
         rst = self.api_post(data)
-        if self.status.startswith('noedit') or self.status.startswith('cantcreate'):
+        if self.status.startswith('noedit') or \
+                self.status.startswith('cantcreate'):
             print('Error: Maybe the bot is blocked and it will terminate.')
             exit(0)
         time.sleep(interval)
 
-        if 'edit' in rst and 'result' in rst['edit'] and rst['edit']['result'] == 'Success':
+        if 'edit' in rst and 'result' in rst['edit'] and \
+                rst['edit']['result'] == 'Success':
             if 'nochange' in rst['edit']:
                 self.status = 'nochange'
             else:
@@ -401,7 +414,8 @@ class Site:
                           captchaid=rst['edit']['captcha'].get('id'),
                           captchaword=word)
             elif rst.get('edit', {}).get('abusefilter', {}).get('id'):
-                self.status = 'abusefilter #%d' % rst['edit']['abusefilter']['id']
+                self.status = 'abusefilter #%d' % \
+                    rst['edit']['abusefilter']['id']
                 if 'info' in rst['edit']:
                     print(rst['edit']['info'])
                 else:
@@ -419,7 +433,9 @@ class Site:
                              'ntcontent': content,
                              'token': self.tokens['csrf']})
 
-        if 'flow' in rst and 'new-topic' in rst['flow'] and 'status' in rst['flow']['new-topic'] and rst['flow']['new-topic']['status'] == 'ok':
+        if 'flow' in rst and 'new-topic' in rst['flow'] and 'status' \
+                in rst['flow']['new-topic'] and \
+                rst['flow']['new-topic']['status'] == 'ok':
             self.flow_ids[page+topic] = rst['flow']['new-topic']['committed']['topiclist']['topic-id']
             self.status = ''
             time.sleep(6)
@@ -434,7 +450,8 @@ class Site:
         rst = self.api_post({'action': 'flow', 'page': page,
                              'submodule': 'lock-topic',
                              'cotmoderationState': 'unlock',
-                             'cotreason': reason, 'token': self.tokens['csrf']})
+                             'cotreason': reason,
+                             'token': self.tokens['csrf']})
         print(json.dumps(rst, indent=4, sort_keys=True))
 
     @check_csrf
@@ -464,7 +481,8 @@ class Site:
         limit += 1
         rst = self.api_get({'action': 'query', 'prop': 'revisions',
                             'pageids': pageid, 'rvprop': 'ids|size',
-                            'rvlimit': str(limit), 'rvstartid': revid}, 'query')
+                            'rvlimit': str(limit),
+                            'rvstartid': revid}, 'query')
         if rst is None:
             return False
         revisions = rst.get('pages', {}).get(pageid, {}).get('revisions', [])
@@ -479,7 +497,8 @@ class Site:
             rst = self.api_get({'action': 'query', 'prop':
                                 'revisions', 'revids': revid,
                                 'rvdiffto': sus_id}, 'query')
-            if not rst.get('pages', {}).get(pageid, {}).get('revisions', [{}])[0].get('diff', {}).get('*', '喵'):
+            if not rst.get('pages', {}).get(pageid, {}) \
+                .get('revisions', [{}])[0].get('diff', {}).get('*', '喵'):
                     return True
         return False
 
