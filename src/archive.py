@@ -5,12 +5,16 @@ import botsite
 from botsite import remove_nottext, cur_timestamp
 
 working_title = 'Wikipedia:机器人/申请'
-success_title = 'Wikipedia:机器人/申请/存档/2017年/獲批的申請'
-failure_title = 'Wikipedia:机器人/申请/存档/2017年/未獲批的申請'
+success_title = 'Wikipedia:机器人/申请/存档/2017年/获批的申请'
+failure_title = 'Wikipedia:机器人/申请/存档/2017年/未获批的申请'
 
 request_title = r'=\s*請求測試許可\s*='
 testing_title = r'=\s*正在測試的機械人\s*='
 tested_title = r'=\s*已完成測試的機械人\s*='
+
+archive_prefix = "{{存檔頁}}\n'''This is an archive page. " \
+        "For new bot request, please to go [[Wikipedia:機械人/申請]]" \
+        "and follow the instructions there.'''\n"
 
 request_re = re.compile(r'%s(.*?)%s' % (request_title, testing_title),
                         re.DOTALL)
@@ -82,7 +86,7 @@ def main(pwd):
             moved += (0 <= new_index < 3 and new_index != old_index)
             archived_s += (new_index == 3)
             archived_f += (new_index == 4)
-    if not moved and not archived:
+    if not moved and not (archived_s+archived_f):
         return None
     summary = '机器人：移动%d个申请，存档%d个申请' % (moved, archived_s + archived_f)
     summary_a = '机器人：存档%d个申请'
@@ -94,11 +98,17 @@ def main(pwd):
     site.edit(new_text, summary, title=working_title, bot=True,
               basets=basets, startts=startts)
     if archived_s:
+        old_text = site.get_text_by_title(success_title)
+        if not old_text:
+            new_list[3] = archive_prefix + new_list[3]
         site.edit(new_list[3], summary_a % archived_s, title=success_title,
-                  append=True, nocreate=False, bot=True)
+                  append=old_text, nocreate=False, bot=True)
     if archived_f:
+        old_text = site.get_text_by_title(failure_title)
+        if not old_text:
+            new_list[4] = archive_prefix + new_list[4]
         site.edit(new_list[4], summary_a % archived_s, title=failure_title,
-                  append=True, nocreate=False, bot=True)
+                  append=old_text, nocreate=False, bot=True)
 
 
 if __name__ == '__main__':
