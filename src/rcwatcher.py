@@ -1,6 +1,7 @@
 import re
 import sys
 import time
+import signal
 import datetime
 import botsite
 import dablink
@@ -36,6 +37,11 @@ def main(pwd):
     last_ts = ts_re.findall(latest_log)[0]
     last_log = last_ts[:10]
     last_id = int(re.findall(r'Special:diff/(\d+)', latest_log)[0])
+
+    def signal_handler(signal, frame):
+        print(site.flow_ids)
+        exit(0)
+    signal.signal(signal.SIGINT, signal_handler)
 
     # dablink.py
     handled_count = 0

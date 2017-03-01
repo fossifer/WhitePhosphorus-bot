@@ -242,6 +242,7 @@ def main(site, id_que, revid_que, old_revid_que):
             else:
                 site.flow_new_topic(user_talk, title, notice % item)
         else:
+            # TODO: the variable s seems not needed
             lines = talk_text.splitlines(True)
             s, sec = 0, 0
             for li, line in enumerate(lines):
@@ -250,7 +251,7 @@ def main(site, id_que, revid_que, old_revid_que):
                     s += 1
                     if m.group('title').strip() == title:
                         sectitle, sec = m.group('title'), s
-                if notice.splitlines()[-1] in line and sec != 0:
+                if notice.splitlines()[-1] in line and sec:
                     lines[li] = sign_re.sub('--~~~~', line)
                     lines.insert(li, item+'\n\n')
                     site.edit(''.join(lines),
