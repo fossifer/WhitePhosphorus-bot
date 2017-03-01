@@ -12,7 +12,8 @@ import exception
 lang = 'zh'
 lang_api = 'https://%s.wikipedia.org/w/api.php' % lang
 
-headers = {'User-Agent': "DZLWikiBot/1.0 (https://zh.wikipedia.org/w/User_talk:WhitePhosphorus) BasedOnPython/3.6"}
+headers = {'User-Agent': "DZLWikiBot/1.0 (https://zh.wikipedia.org/w/"
+           "User_talk:WhitePhosphorus) BasedOnPython/3.6"}
 
 comment_re = re.compile(r'<!--[\s\S]*?-->')
 nowiki_re = re.compile(r'<nowiki>[\s\S]*?</nowiki>|<pre>[\s\S]*?</pre>')
@@ -83,8 +84,8 @@ class Site:
                 print('api_get_long: Try again after %d sec...' % interval)
                 print(req, target, last_c)
                 time.sleep(interval)
-                for t in self.api_get_long(req, target,
-                                           last_cont['continue'], interval * 2):
+                for t in self.api_get_long(req, target, last_cont['continue'],
+                                           interval * 2):
                     yield t
                 break
             if 'error' in result:
@@ -129,7 +130,7 @@ class Site:
 
     def check_user(self, interval=1):
         try:
-            r = self.s.get('https://zh.wikipedia.org/w/api.php?' \
+            r = self.s.get('https://zh.wikipedia.org/w/api.php?'
                            'action=query&format=json&assert=user').json()
         except:
             print('check_user: Try again after %d sec...' % interval)
@@ -140,7 +141,7 @@ class Site:
 
     def check_bot(self):
         try:
-            r = self.s.get('https://zh.wikipedia.org/w/api.php?' \
+            r = self.s.get('https://zh.wikipedia.org/w/api.php?'
                            'action=query&format=json&assert=bot').json()
         except:
             print('check_bot: Try again after %d sec...' % interval)
@@ -340,7 +341,7 @@ class Site:
             req['eipageid'] = str(pageid)
         else:
             req['eititle'] = title
-        
+
         for rst in self.api_get_long(req, 'query'):
             if not rst['embeddedin']:
                 raise StopIteration()
@@ -351,7 +352,7 @@ class Site:
     def edit(self, text, summary, title=None, pageid=None, append=False,
              minor=False, bot=False, nocreate=True, check_title=False,
              section=None, sectiontitle=None, basets=None, startts=None,
-             print_only=True, captchaid=None, captchaword=None, interval=6):
+             print_only=False, captchaid=None, captchaword=None, interval=6):
         assert((title is None) != (pageid is None))
         assert((captchaid is None) == (captchaword is None))
         if print_only:
@@ -422,8 +423,6 @@ class Site:
 
     @check_csrf
     def flow_new_topic(self, page, topic, content, check_title=False):
-        print('flow_new_topic')
-        return None
         if check_title:
             page = self.exact_title(page)
 
@@ -435,7 +434,8 @@ class Site:
         if 'flow' in rst and 'new-topic' in rst['flow'] and 'status' \
                 in rst['flow']['new-topic'] and \
                 rst['flow']['new-topic']['status'] == 'ok':
-            self.flow_ids[page+topic] = rst['flow']['new-topic']['committed']['topiclist']['topic-id']
+            self.flow_ids[page + topic] = \
+                rst['flow']['new-topic']['committed']['topiclist']['topic-id']
             self.status = ''
             time.sleep(6)
         else:
@@ -455,14 +455,14 @@ class Site:
 
     @check_csrf
     def flow_reply(self, page, id, content, retry=False):
-        print('flow_reply')
-        return None
         rst = self.api_post({'action': 'flow', 'page': page,
                              'submodule': 'reply', 'repreplyTo': id,
                              'repcontent': content,
                              'token': self.tokens['csrf']})
 
-        if 'flow' in rst and 'reply' in rst['flow'] and 'status' in rst['flow']['reply'] and rst['flow']['reply']['status'] == 'ok':
+        if 'flow' in rst and 'reply' in rst['flow'] \
+                and 'status' in rst['flow']['reply'] \
+                and rst['flow']['reply']['status'] == 'ok':
             self.status = ''
             time.sleep(6)
         else:
@@ -499,8 +499,8 @@ class Site:
                                 'revisions', 'revids': revid,
                                 'rvdiffto': sus_id}, 'query')
             if not rst.get('pages', {}).get(pageid, {}) \
-                .get('revisions', [{}])[0].get('diff', {}).get('*', '喵'):
-                    return True
+                    .get('revisions', [{}])[0].get('diff', {}).get('*', '喵'):
+                return True
         return False
 
 

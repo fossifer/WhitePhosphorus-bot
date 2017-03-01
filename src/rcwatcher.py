@@ -42,7 +42,7 @@ def main(pwd):
     id_que, revid_que, old_revid_que = [], [], []
     dablink.last_log = last_log
     #
-    
+
     while True:
         id_que, revid_que, old_revid_que = [], [], []
         leisure = True
@@ -60,21 +60,19 @@ def main(pwd):
                     dablink.update_ignore_templates(site)
             handled_count += 1
             if change['type'] == 'log':
-                if change['logtype'] != 'move':
-                    continue#
-                id_que.append(('', '', change['timestamp'], \
-                    change['logparams']['target_title'], \
-                    str(change['pageid']), revid, '0'))
+                if change['logtype'] == 'move':
+                    id_que.append(('', '', change['timestamp'],
+                                   change['logparams']['target_title'],
+                                   str(change['pageid']), revid, '0'))
             else:
-                if '!nobot!' in change['comment'] or \
-                        change['user'] == bot_name:
-                    continue#
-                id_que.append((change['user'], change['userid'], \
-                    change['timestamp'], change['title'], \
-                    str(change['pageid']), revid, old_revid))
+                if '!nobot!' not in change['comment'] and \
+                        change['user'] != bot_name:
+                    id_que.append((change['user'], change['userid'],
+                                   change['timestamp'], change['title'],
+                                   str(change['pageid']), revid, old_revid))
             revid_que.append(revid)
             old_revid_que.append(old_revid)
-            
+
             if change['timestamp'][:10] != last_ts[:10]:
                 # delete out-dated keys
                 [title] = site.get_text_by_ids(['5575182'])

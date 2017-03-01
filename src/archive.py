@@ -12,8 +12,10 @@ request_title = r'=\s*請求測試許可\s*='
 testing_title = r'=\s*正在測試的機械人\s*='
 tested_title = r'=\s*已完成測試的機械人\s*='
 
-request_re = re.compile(r'%s(.*?)%s' % (request_title, testing_title), re.DOTALL)
-testing_re = re.compile(r'%s(.*?)%s' % (testing_title, tested_title), re.DOTALL)
+request_re = re.compile(r'%s(.*?)%s' % (request_title, testing_title),
+                        re.DOTALL)
+testing_re = re.compile(r'%s(.*?)%s' % (testing_title, tested_title),
+                        re.DOTALL)
 tested_re = re.compile(r'%s(.*?)$' % (tested_title), re.DOTALL)
 section_re = [request_re, testing_re, tested_re]
 subpage_re = re.compile(r'{{[\s\n\r]*(.*?)[\s\n\r]*}}', re.DOTALL)
@@ -29,14 +31,16 @@ group_failure = ['BotDenied', 'BotWithdrawn', 'BotExpired', 'BotRevoked',
 
 complete_delay_days = 7
 
+
 def normalize(title):
     return working_title + title if title.startswith('/') else title
+
 
 def handle(site, title, origin):
     text = site.get_text_by_title(title, ts=True)
     old = datetime.datetime.strptime(site.ts, '%Y-%m-%dT%H:%M:%SZ')
     text = delete_re.sub('', remove_nottext(text))
-    
+
     if site.template_in_page(group_notchange, text=text):
         return origin
 
@@ -58,6 +62,7 @@ def handle(site, title, origin):
 
     return ret
 
+
 def main(pwd):
     site = botsite.Site()
     site.client_login(pwd)
@@ -66,7 +71,8 @@ def main(pwd):
     old_list = list(map(lambda t: subpage_re.findall(t),
                         [r.search(all_text).groups(0)[0] for r in section_re]))
     moved, archived_s, archived_f = 0, 0, 0
-    new_list = [[], [], [], [], []] # request, testing, tested, success, failure
+    # request, testing, tested, success, failure
+    new_list = [[], [], [], [], []]
     for old_index, sub_list in enumerate(old_list[::-1]):
         old_index = 2 - old_index
         for i, title in enumerate(sub_list):
@@ -81,18 +87,19 @@ def main(pwd):
     summary = '机器人：移动%d个申请，存档%d个申请' % (moved, archived_s + archived_f)
     summary_a = '机器人：存档%d个申请'
     new_list = ['\n'+'\n'.join(sub_list)+'\n' for sub_list in new_list]
-    new_text = re.search(r'([\s\S]*?)'+request_title, all_text).groups(0)[0] + \
-               request_title.replace(r'\s*', '') + new_list[0] + \
-               testing_title.replace(r'\s*', '') + new_list[1] + \
-               tested_title.replace(r'\s*', '') + new_list[2]
+    new_text = re.search(r'([\s\S]*?)' + request_title, all_text).groups(0)[0]\
+             + request_title.replace(r'\s*', '') + new_list[0] \
+             + testing_title.replace(r'\s*', '') + new_list[1] \
+             + tested_title.replace(r'\s*', '') + new_list[2]
     site.edit(new_text, summary, title=working_title, bot=True,
-              basets=basets, startts= startts)
+              basets=basets, startts=startts)
     if archived_s:
         site.edit(new_list[3], summary_a % archived_s, title=success_title,
                   append=True, nocreate=False, bot=True)
     if archived_f:
         site.edit(new_list[4], summary_a % archived_s, title=failure_title,
                   append=True, nocreate=False, bot=True)
+
 
 if __name__ == '__main__':
     main(sys.argv[1])
