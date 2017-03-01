@@ -1,9 +1,9 @@
-import time
+# TODO: <source lang='foo'> </source>
+
 import re
 import sys
-import json
+import time
 import datetime
-import requests
 import difflib
 import botsite
 from botsite import remove_nottext, cur_timestamp
@@ -31,7 +31,6 @@ sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]' \
                      '（\[\[User talk:WhitePhosphorus\|给主人留言\]\]）' \
                      ' [0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日 \([日一二三四五六]\)' \
                      '[0-9]{2}:[0-9]{2} \(UTC\)')
-ts_re = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
 pycomment_re = re.compile(r'[ \t]*#.*?[\r\n]')
 
 last_log, ignoring_templates = '', ''
@@ -42,7 +41,7 @@ bot_name, bot_name_l = 'WhitePhosphorus-bot', 'whitePhosphorus-bot'
 
 
 def judge_allowed(page_text):
-    '''
+    """
     if following patterns are found in a user talk page, then the bot is denied:
     {{nobots}},
     {{bots|allow=none}},
@@ -50,7 +49,7 @@ def judge_allowed(page_text):
     {{bots|deny=all}},
     {{bots|deny=<botlist>}} and bot_name in <botlist>
     {{bots|optout=all}}
-    '''
+    """
     # without <botlist>
     if nobots_re.findall(page_text):
         return False
@@ -174,161 +173,101 @@ def update_ignore_templates(site):
                 .splitlines() if s])))
 
 
-def main(pwd):
-    global last_log, ignoring_templates
-    site = botsite.Site()
-    site.client_login(pwd)
-    ignoring_templates = update_ignore_templates(site)
-    id_que, revid_que, old_revid_que, notice_que = [], [], [], []
-    id_count, handled_count = 0, 0
-    latest_log = site.get_text_by_ids(['5571942'])[0].splitlines()[-1]
-    last_ts = ts_re.findall(latest_log)[0]
-    last_log = last_ts[:10]
-    last_id = int(re.findall(r'Special:diff/(\d+)', latest_log)[0])
-    while True:
-        # Step 1: query wikitexts changed via RecentChange log
-        for change in site.rc_generator(last_ts):
-            if change['revid'] <= last_id:
-                continue
-            last_ts, last_id = change['timestamp'], change['revid']
-            if change['type'] == 'log':
-                if change['logtype'] != 'move':
-                    continue
-                user, userid, timestamp, title, pageid, revid, old_revid = \
-                    '', '', change['timestamp'], \
-                    change['logparams']['target_title'], \
-                    str(change['pageid']), change['revid'], '0'
-            else:
-                if '!nobot!' in change['comment'] or \
-                        change['user'] == bot_name:
-                    continue
-                user, userid, timestamp, title, pageid, revid, old_revid = \
-                    change['user'], change['userid'], change['timestamp'], \
-                    change['title'], str(change['pageid']), change['revid'], \
-                    str(change['old_revid'])
-            handled_count += 1
-            if handled_count & 0x3FF == 0:
-                ignoring_templates = update_ignore_templates(site)
-            revid = str(revid)
-            id_que.append((user, userid, timestamp, title, pageid, \
-                           revid, old_revid))
-            revid_que.append(revid)
-            old_revid_que.append(old_revid)
-            if len(id_que) == max_n:
+def main(site, id_que, revid_que, old_revid_que):
+    print(id_que, revid_que, old_revid_que)
+    # Step 1: query wikitexts changed via RecentChange log
+    new_list = site.get_text_by_revid(revid_que)
+    old_list = site.get_text_by_revid(old_revid_que)
+
+    # Step 2: find diffs and pick out disambig links added
+    rst = find_disambig_links(site, id_que, new_list, old_list)
+
+    # Step 3: Log, notice and resume next
+    for i, r in enumerate(rst):
+        if not r:
+            continue
+        # {{需要消歧义}}
+        while True:
+            # try to edit again and again
+            text = site.get_text_by_title(id_que[i][3], ts=True)
+            # s.group(1) and ...: ignoring uncompleted links '[[]]'
+            new_text = link_t_re.sub(lambda s: s.group(0) + \
+                '{{需要消歧义|date=%s年%d月}}' % (id_que[i][2][:4], \
+                int(id_que[i][2][5:7])) if s.group(1) and \
+                '[[%s]]' % s.group(1) in r else s.group(0), text)
+            site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}',
+                      title=id_que[i][3], bot=False,
+                      basets=site.ts, startts=site.ts)
+            if site.status != 'editconflict':
                 break
-        if not id_que:
-            time.sleep(1)
+
+        # no change means the dablink is already fixed, do not notice
+        if site.status == 'nochange' or site.status == 'pagedeleted':
+            continue
+        elif site.status:
+            log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s " \
+                "－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/" \
+                "dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3],
+                site.status, '、'.join(r), id_que[i][3]), site.ts, red=True)
+
+        # judge whether to notice user or not
+        if not id_que[i][0]:
+            continue
+        user_talk = 'User talk:%s' % id_que[i][0]
+        [talk_text, is_flow] = site.get_text_by_title(user_talk,
+                                                      detect_flow=True,
+                                                      ts=True)
+        will_notify = site.editcount(id_que[i][0]) >= 100 \
+                and judge_allowed(talk_text) \
+                and not site.has_dup_rev(id_que[i][4], id_que[i][5])
+
+        [notice, item, title, summary] = site.get_text_by_ids([ \
+            '5574512', '5574516', '5575182', '5575256'])
+        year, month, day = id_que[i][2][:4], \
+            int(id_que[i][2][5:7]), int(id_que[i][2][8:10])
+        title = title % (year, month, day)
+        item = item % (id_que[i][3], '、'.join(r), id_que[i][5],
+                       id_que[i][3].replace(' ', '_'))
+
+        if not will_notify:
+            log(site, '检查User:%s（不通知）于%s的编辑时发现%s' % ( \
+                id_que[i][0], id_que[i][2], item[2:]), id_que[i][2])
             continue
 
-        new_list = site.get_text_by_revid(revid_que)
-        old_list = site.get_text_by_revid(old_revid_que)
-
-        # Step 2: find diffs and pick out disambig links added
-        rst = find_disambig_links(site, id_que, new_list, old_list)
-
-        # Step 3: Log, notice and resume next
-        for i, r in enumerate(rst):
-            if not r:
-                continue
-            # {{需要消歧义}}
-            while True:
-                # try to edit again and again
-                text = site.get_text_by_title(id_que[i][3], ts=True)
-                # s.group(1) and ...: ignoring uncompleted links '[[]]'
-                new_text = link_t_re.sub(lambda s: s.group(0) + \
-                    '{{需要消歧义|date=%s年%d月}}' % (id_que[i][2][:4], \
-                    int(id_que[i][2][5:7])) if s.group(1) and \
-                    '[[%s]]' % s.group(1) in r else s.group(0), text)
-                site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}',
-                          title=id_que[i][3], bot=False,
-                          basets=site.ts, startts=site.ts)
-                if site.status != 'editconflict':
-                    break
-
-            # no change means the dablink is already fixed, do not notice
-            if site.status == 'nochange' or site.status == 'pagedeleted':
-                continue
-            elif site.status:
-                log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s " \
-                    "－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/" \
-                    "dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3],
-                    site.status, '、'.join(r), id_que[i][3]), site.ts, red=True)
-
-            # judge whether to notice user or not
-            if not id_que[i][0]:
-                continue
-            user_talk = 'User talk:%s' % id_que[i][0]
-            [talk_text, is_flow] = site.get_text_by_title(user_talk,
-                                                          detect_flow=True,
-                                                          ts=True)
-            will_notify = site.editcount(id_que[i][0]) >= 100 and judge_allowed(talk_text) and not site.has_dup_rev(id_que[i][4], id_que[i][5])
-
-            [notice, item, title, summary] = site.get_text_by_ids(['5574512',
-                                                                   '5574516',
-                                                                   '5575182',
-                                                                   '5575256'])
-            year, month, day = id_que[i][2][:4], \
-                int(id_que[i][2][5:7]), int(id_que[i][2][8:10])
-            title = title % (year, month, day)
-            item = item % (id_que[i][3], '、'.join(r), id_que[i][5],
-                           id_que[i][3].replace(' ', '_'))
-
-            if not will_notify:
-                log(site, '检查User:%s（不通知）于%s的编辑时发现%s' % (id_que[i][0],
-                                                                  id_que[i][2],
-                                                                  item[2:]),
-                    id_que[i][2])
-                continue
-
-            # notice
-            if is_flow:
-                if (user_talk+title) in site.flow_ids:
-                    id = site.flow_ids[user_talk+title]
-                    site.flow_reply('Topic:'+id, id, '补充：\n'+item)
-                else:
-                    site.flow_new_topic(user_talk, title, notice % item)
+        # notice
+        if is_flow:
+            if (user_talk+title) in site.flow_ids:
+                id = site.flow_ids[user_talk+title]
+                site.flow_reply('Topic:'+id, id, '补充：\n'+item)
             else:
-                lines = talk_text.splitlines(True)
-                s, sec = 0, 0
-                for li, line in enumerate(lines):
-                    m = section_re.match(line)
-                    if m is not None:
-                        s += 1
-                        if m.group('title').strip() == title:
-                            sectitle, sec = m.group('title'), s
-                    if notice.splitlines()[-1] in line and sec != 0:
-                        lines[li] = sign_re.sub('--~~~~', line)
-                        lines.insert(li, item+'\n\n')
-                        site.edit(''.join(lines),
-                                  '/* %s */ %s' % (sectitle, summary),
-                                  title=user_talk,
-                                  basets=site.ts, startts=site.ts)
-                        break
-                else:
-                    site.edit(notice % item+' --~~~~', summary, \
-                              title=user_talk, append=True, section='new',
-                              sectiontitle=title, nocreate=False)
+                site.flow_new_topic(user_talk, title, notice % item)
+        else:
+            lines = talk_text.splitlines(True)
+            s, sec = 0, 0
+            for li, line in enumerate(lines):
+                m = section_re.match(line)
+                if m is not None:
+                    s += 1
+                    if m.group('title').strip() == title:
+                        sectitle, sec = m.group('title'), s
+                if notice.splitlines()[-1] in line and sec != 0:
+                    lines[li] = sign_re.sub('--~~~~', line)
+                    lines.insert(li, item+'\n\n')
+                    site.edit(''.join(lines),
+                              '/* %s */ %s' % (sectitle, summary),
+                              title=user_talk,
+                              basets=site.ts, startts=site.ts)
+                    break
+            else:
+                site.edit(notice % item+' --~~~~', summary, \
+                          title=user_talk, append=True, section='new',
+                          sectiontitle=title, nocreate=False)
 
-            # log
-            log(site, '检查User:%s（%s通知）于%s的编辑时发现%s' % (id_que[i][0], \
-                '未' if site.status else '已', id_que[i][2], item[2:]), \
-                id_que[i][2], red=site.status)
-
-        id_count = 0
-        id_que, revid_que, old_revid_que = [], [], []
-        # now *change* equals to the last edit iterated, record it
-        if change['timestamp'][:10] != last_ts[:10]:
-            # delete out-dated keys
-            [title] = site.get_text_by_ids(['5575182'])
-            year, month, day = last_ts[:4], \
-                int(last_ts[5:7]), int(last_ts[8:10])
-            title = title % (year, month, day)
-            tmp = site.flow_ids.copy()
-            for k in site.flow_ids.keys():
-                if title in k:
-                    del tmp[k]
-            site.flow_ids = tmp
+        # log
+        log(site, '检查User:%s（%s通知）于%s的编辑时发现%s' % (id_que[i][0], \
+            '未' if site.status else '已', id_que[i][2], item[2:]), \
+            id_que[i][2], red=site.status)
 
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    pass

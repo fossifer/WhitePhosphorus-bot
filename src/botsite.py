@@ -127,14 +127,26 @@ class Site:
         req['meta'], req['action'] = 'tokens', 'query'
         return self.api_get(req, 'query').get('tokens')
 
-    def check_user(self):
-        r = self.s.get('https://zh.wikipedia.org/w/api.php?' \
-                       'action=query&format=json&assert=user').json()
+    def check_user(self, interval=1):
+        try:
+            r = self.s.get('https://zh.wikipedia.org/w/api.php?' \
+                           'action=query&format=json&assert=user').json()
+        except:
+            print('check_user: Try again after %d sec...' % interval)
+            print(r)
+            time.sleep(interval)
+            return self.check_user(interval * 2)
         return 'error' not in r
 
     def check_bot(self):
-        r = self.s.get('https://zh.wikipedia.org/w/api.php?' \
-                       'action=query&format=json&assert=bot').json()
+        try:
+            r = self.s.get('https://zh.wikipedia.org/w/api.php?' \
+                           'action=query&format=json&assert=bot').json()
+        except:
+            print('check_bot: Try again after %d sec...' % interval)
+            print(r)
+            time.sleep(interval)
+            return self.check_bot(interval * 2)
         return 'error' not in r
 
     def client_login(self, pwd=None):
@@ -309,21 +321,6 @@ class Site:
             return 0
         return r.get('users', [{}])[0].get('editcount', 0)
 
-    def rc_generator(self, rcstart):
-        rcprop = 'user|userid|timestamp|title|ids|comment|loginfo'
-        for rc in self.api_get_long({'action': 'query',
-                                     'list': 'recentchanges',
-                                     'rcstart': rcstart, 'rcdir': 'newer',
-                                     'rcnamespace': '0',
-                                     'rctype': 'edit|new|log',
-                                     'rcshow': '!redirect',
-                                     'rcprop': rcprop,
-                                     'rclimit': 'max'}, 'query'):
-            if not rc['recentchanges']:
-                raise StopIteration()
-            for change in rc['recentchanges']:
-                yield change
-
     def cat_generator(self, cat_id):
         for cat in self.api_get_long({'action': 'query',
                                       'list': 'categorymembers',
@@ -354,7 +351,7 @@ class Site:
     def edit(self, text, summary, title=None, pageid=None, append=False,
              minor=False, bot=False, nocreate=True, check_title=False,
              section=None, sectiontitle=None, basets=None, startts=None,
-             print_only=False, captchaid=None, captchaword=None, interval=6):
+             print_only=True, captchaid=None, captchaword=None, interval=6):
         assert((title is None) != (pageid is None))
         assert((captchaid is None) == (captchaword is None))
         if print_only:
@@ -425,6 +422,8 @@ class Site:
 
     @check_csrf
     def flow_new_topic(self, page, topic, content, check_title=False):
+        print('flow_new_topic')
+        return None
         if check_title:
             page = self.exact_title(page)
 
@@ -456,6 +455,8 @@ class Site:
 
     @check_csrf
     def flow_reply(self, page, id, content, retry=False):
+        print('flow_reply')
+        return None
         rst = self.api_post({'action': 'flow', 'page': page,
                              'submodule': 'reply', 'repreplyTo': id,
                              'repcontent': content,

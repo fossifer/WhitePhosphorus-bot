@@ -67,7 +67,8 @@ def main(pwd):
                         [r.search(all_text).groups(0)[0] for r in section_re]))
     moved, archived_s, archived_f = 0, 0, 0
     new_list = [[], [], [], [], []] # request, testing, tested, success, failure
-    for old_index, sub_list in enumerate(old_list):
+    for old_index, sub_list in enumerate(old_list[::-1]):
+        old_index = 2 - old_index
         for i, title in enumerate(sub_list):
             sub_list[i] = normalize(title)
             new_index = handle(site, sub_list[i], 0)
@@ -81,17 +82,17 @@ def main(pwd):
     summary_a = '机器人：存档%d个申请'
     new_list = ['\n'+'\n'.join(sub_list)+'\n' for sub_list in new_list]
     new_text = re.search(r'([\s\S]*?)'+request_title, all_text).groups(0)[0] + \
-               request_title.replace(r'\s*', ' ') + new_list[0] + \
-               testing_title.replace(r'\s*', ' ') + new_list[1] + \
-               tested_title.replace(r'\s*', ' ') + new_list[2]
+               request_title.replace(r'\s*', '') + new_list[0] + \
+               testing_title.replace(r'\s*', '') + new_list[1] + \
+               tested_title.replace(r'\s*', '') + new_list[2]
     site.edit(new_text, summary, title=working_title, bot=True,
-              basets=basets, startts= startts, print_only=True)
+              basets=basets, startts= startts)
     if archived_s:
         site.edit(new_list[3], summary_a % archived_s, title=success_title,
-                  append=True, nocreate=False, bot=True, print_only=True)
+                  append=True, nocreate=False, bot=True)
     if archived_f:
         site.edit(new_list[4], summary_a % archived_s, title=failure_title,
-                  append=True, nocreate=False, bot=True, print_only=True)
+                  append=True, nocreate=False, bot=True)
 
 if __name__ == '__main__':
     main(sys.argv[1])
