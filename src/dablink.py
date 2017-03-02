@@ -28,10 +28,10 @@ ns_re = re.compile(r'^category\s*:|^分[类類]\s*:|'
                    '^file\s*:|^image\s*:|^文件\s*:|^[档檔]案\s*:|'
                    '^wikipedia\s*:|^wp\s*:|^project\s*:|^[維维]基百科\s*:')
 section_re = re.compile(r'(^|[^=])==(?P<title>[^=].*?[^=])==([^=]|$)')
-sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]'
-                     '（\[\[User talk:WhitePhosphorus\|给主人留言\]\]）'
-                     ' [0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日 \([日一二三四五六]\)'
-                     '[0-9]{2}:[0-9]{2} \(UTC\)')
+sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]' \
+                     '（\[\[User talk:WhitePhosphorus\|给主人留言\]\]）' \
+                     ' \d{4}年\d{1,2}月\d{1,2}日 \([日一二三四五六]\)' \
+                     ' \d{2}:\d{2} \(UTC\)')
 pycomment_re = re.compile(r'[ \t]*#.*?[\r\n]')
 
 last_log, ignoring_templates = '', ''
