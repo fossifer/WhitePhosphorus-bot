@@ -1,6 +1,7 @@
 import re
 import sys
 import time
+import atexit
 import signal
 import datetime
 import botsite
@@ -54,6 +55,7 @@ def main(pwd):
         print(site.flow_ids)
         exit(0)
     signal.signal(signal.SIGINT, signal_handler)
+    atexit.register(signal_handler)
 
     # dablink.py
     handled_count = 0
