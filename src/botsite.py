@@ -334,7 +334,7 @@ class Site:
             for page in cat['categorymembers']:
                 yield str(page['pageid'])
 
-    def what_embeds_it(self, pageid=None, title=None, ns='0'):
+    def what_embeds_it(self, pageid=None, title=None, ns='0', id=True):
         assert((pageid is None) != (title is None))
         req = {'action': 'query', 'list': 'embeddedin', 'einamespace': ns}
         if title is None:
@@ -346,7 +346,7 @@ class Site:
             if not rst['embeddedin']:
                 raise StopIteration()
             for page in rst['embeddedin']:
-                yield str(page['pageid'])
+                yield str(page['pageid']) if id else str(page['title'])
 
     @check_csrf
     def edit(self, text, summary, title=None, pageid=None, append=False,
