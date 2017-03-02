@@ -26,7 +26,7 @@ link_invalid = '<>[]|{}'
 # do not forget to use lower()
 ns_re = re.compile(r'^category\s*:|^分[类類]\s*:|'
                    '^file\s*:|^image\s*:|^文件\s*:|^[档檔]案\s*:|'
-                   '^wikipedia:\s*:|^wp\s*:|^project\s*:|^[維维]基百科\s*:')
+                   '^wikipedia\s*:|^wp\s*:|^project\s*:|^[維维]基百科\s*:')
 section_re = re.compile(r'(^|[^=])==(?P<title>[^=].*?[^=])==([^=]|$)')
 sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]'
                      '（\[\[User talk:WhitePhosphorus\|给主人留言\]\]）'
@@ -195,7 +195,7 @@ def is_disambig(site, ids):
     return ret
 
 
-def main(site, id_que, revid_que=None, old_revid_que=None):
+def main(site, id_que):
     # Step 0: exclude disambiguation pages
     id_list = [tuple[4] for tuple in id_que]
     dab_list = is_disambig(site, id_list)
