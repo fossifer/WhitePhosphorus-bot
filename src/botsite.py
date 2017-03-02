@@ -20,7 +20,7 @@ nowiki_re = re.compile(r'<nowiki>[\s\S]*?</nowiki>|<pre>[\s\S]*?</pre>')
 
 bot_name = 'WhitePhosphorus-bot'
 
-maxlag = 5
+maxlag = 5.0
 max_n = 500  # nonbots 50, bots 500
 
 
@@ -117,7 +117,7 @@ class Site:
                 print(lag_str)
                 lag_m = re.search(r'(\d+(.\d+)?) seconds lagged.', lag_str)
                 lag_sec = maxlag if lag_m is None else float(lag_m.group(1))
-                print('Try again after %d sec...' % lag_sec)
+                print('Try again after %f sec...' % lag_sec)
                 time.sleep(lag_sec)
                 return self.api_post(data, lag_sec)
             self.status = code

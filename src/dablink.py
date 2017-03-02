@@ -4,6 +4,7 @@ import re
 import sys
 import time
 import datetime
+import collections
 import difflib
 import botsite
 from botsite import remove_nottext, cur_timestamp
@@ -173,8 +174,35 @@ def update_ignore_templates(site):
             .splitlines() if s])))
 
 
-def main(site, id_que, revid_que, old_revid_que):
-    print(id_que, revid_que, old_revid_que)
+def is_disambig(site, ids):
+    ret = [False] * len(ids)
+    id_str = '|'.join(ids)
+    id_dict = collections.defaultdict(list)
+    for i, id in enumerate(ids):
+        id_dict[id].append(i)
+    try:
+        r = site.api_post({'action': 'query', 'prop': 'pageprops',
+                           'ppprop': 'disambiguation',
+                           'pageids': id_str}).get('query')
+    except requests.exceptions.ConnectionError as error:
+        print(error)
+        print('dablink.is_disambig: try again...')
+        return is_disambig(site, ids)
+    for k, v in r.get('pages', {}).items():
+        tmp = 'disambiguation' in v.get('pageprops', [])
+        for index in id_dict[k]:
+            ret[index] = tmp
+    return ret
+
+
+def main(site, id_que, revid_que=None, old_revid_que=None):
+    # Step 0: exclude disambiguation pages
+    id_list = [tuple[4] for tuple in id_que]
+    dab_list = is_disambig(site, id_list)
+    id_que = [tuple for i, tuple in enumerate(id_que) if not dab_list[i]]
+    revid_que = [tuple[5] for tuple in id_que]
+    old_revid_que = [tuple[6] for tuple in id_que]
+
     # Step 1: query wikitexts changed via RecentChange log
     new_list = site.get_text_by_revid(revid_que)
     old_list = site.get_text_by_revid(old_revid_que)
