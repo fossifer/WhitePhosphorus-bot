@@ -18,7 +18,7 @@ bad_list = []
 def init():
     global bad_list
     text = site.get_text_by_title('MediaWiki:Bad_image_list')
-    bad_list = ['File:' + match.group('name')
+    bad_list = ['File:' + match.group('name').replace('_', ' ')
                 for match in file_re.finditer(text)]
 
 
@@ -48,15 +48,16 @@ def remove():
             title='Template:受限制文件', ns='6', id=False):
         if title not in bad_list:
             t = ''
-            new_text = bad_re.sub('', site.get_text_by_title(image))
+            new_text = bad_re.sub('', site.get_text_by_title(title))
             if not empty_re.sub('', new_text):
                 new_text = '{{d|g1}}'
                 t = '并提请快速删除（G1）'
+                print(title)
             site.edit(new_text,
                       '机器人：[[%s]]不在[[MediaWiki:Bad image list]]中，移除' \
                       '{{[[Template:受限制文件|受限制文件]]}}%s' % (title, t),
-                      bot=True, small=True, title=title,
-                      basets=site.ts, startts=site.ts)
+                      bot=True, minor=True, title=title,
+                      basets=site.ts, startts=site.ts, print_only=True)
 
 
 if __name__ == '__main__':

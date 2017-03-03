@@ -13,7 +13,7 @@ testing_title = r'=\s*正在測試的機械人\s*='
 tested_title = r'=\s*已完成測試的機械人\s*='
 
 archive_prefix = "{{存檔頁}}\n'''This is an archive page. " \
-        "For new bot request, please to go [[Wikipedia:機械人/申請]]" \
+        "For new bot request, please to go [[Wikipedia:機械人/申請]] " \
         "and follow the instructions there.'''\n"
 
 request_re = re.compile(r'%s(.*?)%s' % (request_title, testing_title),
@@ -51,16 +51,18 @@ def handle(site, title, origin):
     ret = 0
     if site.template_in_page(group_testing, text=text):
         ret = 1
-    if site.template_in_page(group_tested, text=text):
-        ret = 2
     now = datetime.datetime.utcnow()
     delay = (now-old).days
     if delay >= complete_delay_days:
+        if site.template_in_page(group_tested, text=text):
+            ret = 2
         if site.template_in_page(group_success, text=text):
             ret = 3
         if site.template_in_page(group_failure, text=text):
             ret = 4
     else:
+        if site.template_in_page(group_tested, text=text):
+            ret = origin
         if site.template_in_page(group_success, text=text):
             ret = 2
 
@@ -95,20 +97,20 @@ def main(pwd):
              + request_title.replace(r'\s*', '') + new_list[0] \
              + testing_title.replace(r'\s*', '') + new_list[1] \
              + tested_title.replace(r'\s*', '') + new_list[2]
-    site.edit(new_text, summary, title=working_title, bot=True,
+    site.edit(new_text, summary, title=working_title, minor=True, bot=True,
               basets=basets, startts=startts)
     if archived_s:
         old_text = site.get_text_by_title(success_title)
         if not old_text:
             new_list[3] = archive_prefix + new_list[3]
         site.edit(new_list[3], summary_a % archived_s, title=success_title,
-                  append=old_text, nocreate=False, bot=True)
+                  append=old_text, nocreate=False, minor=True, bot=True)
     if archived_f:
         old_text = site.get_text_by_title(failure_title)
         if not old_text:
             new_list[4] = archive_prefix + new_list[4]
         site.edit(new_list[4], summary_a % archived_s, title=failure_title,
-                  append=old_text, nocreate=False, bot=True)
+                  append=old_text, nocreate=False, minor=True, bot=True)
 
 
 if __name__ == '__main__':
