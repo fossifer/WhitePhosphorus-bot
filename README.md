@@ -2,6 +2,8 @@
 
 ## In a nutshell
 A bot running on Chinese wikipedia (https://zh.wikipedia.org). Orz.
+### Requirements
+Python 3.6+
 
 ## Functions
 * dablinks notification

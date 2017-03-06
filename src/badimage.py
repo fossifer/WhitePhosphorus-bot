@@ -52,12 +52,11 @@ def remove():
             if not empty_re.sub('', new_text):
                 new_text = '{{d|g1}}'
                 t = '并提请快速删除（G1）'
-                print(title)
             site.edit(new_text,
                       '机器人：[[%s]]不在[[MediaWiki:Bad image list]]中，移除' \
                       '{{[[Template:受限制文件|受限制文件]]}}%s' % (title, t),
                       bot=True, minor=True, title=title,
-                      basets=site.ts, startts=site.ts, print_only=True)
+                      basets=site.ts, startts=site.ts)
 
 
 if __name__ == '__main__':

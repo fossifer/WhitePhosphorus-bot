@@ -74,6 +74,8 @@ def contains_any(src, pat):
 
 
 def log(site, text, ts, red=False):
+    return None
+    """
     global last_log
     text = '\n* [~~~~~] ' + text
     if red:
@@ -100,6 +102,7 @@ def log(site, text, ts, red=False):
               '机器人：消歧义内链日志记录。',
               title='User:WhitePhosphorus-bot/log/dablink', bot=True)
     last_log = ts[:10]
+    """
 
 
 def remove_templates(site, text):
@@ -131,11 +134,18 @@ def find_disambig_links(site, id_que, new_list, old_list):
             c = contains_any(tuple[0], link_invalid)
             if c is not None:
                 # log: invalid
+                """
                 log(site, '检查User:%s于[[%s]]做出的版本号%s'
                     '（[[Special:diff/%s|差异]]），时间戳%s的编辑时遇到异常：'
                     '标题“<nowiki>%s</nowiki>”含有非法字符“%s”，请复查。'
                     % (id_que[i][0], id_que[i][3], id_que[i][5],
                        id_que[i][5], id_que[i][2], tuple[0], c), id_que[i][2])
+                """
+                print('检查User:%s于[[%s]]做出的版本号%s'
+                      '（[[Special:diff/%s|差异]]），时间戳%s的编辑时遇到异常：'
+                      '标题“<nowiki>%s</nowiki>”含有非法字符“%s”，请复查。'
+                      % (id_que[i][0], id_que[i][3], id_que[i][5],
+                         id_que[i][5], id_que[i][2], tuple[0], c))
                 continue
             if tuple[0]:
                 link_dict[tuple[0]] = link_dict.get(tuple[0], 0) + 1
@@ -233,10 +243,16 @@ def main(site, id_que):
         if site.status == 'nochange' or site.status == 'pagedeleted':
             continue
         elif site.status:
+            """
             log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s "
                 "－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/"
                 "dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3],
                 site.status, '、'.join(r), id_que[i][3]), site.ts, red=True)
+            """
+            print("保存[[%s]]失败：%s！需要消歧义的内链有：%s "
+                  "－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/"
+                  "dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3],
+                      site.status, '、'.join(r), id_que[i][3]))
 
         # judge whether to notice user or not
         if not id_que[i][0]:
