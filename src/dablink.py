@@ -207,12 +207,17 @@ def main(site, id_que):
 
     # Step 1: query wikitexts changed via RecentChange log
     new_list = site.get_text_by_revid(revid_que)
+    new_hidden_set = set(site.hidden)
     old_list = site.get_text_by_revid(old_revid_que)
+    s = set(site.hidden) | new_hidden_set
+    for i in s:
+        new_list[i], old_list[i] = '', ''
 
     # Step 2: find diffs and pick out disambig links added
     rst = find_disambig_links(site, id_que, new_list, old_list)
 
-    return rst
+    # Notice that *id_que* may be updated in step 0
+    return rst, id_que
 
 
 if __name__ == '__main__':

@@ -50,6 +50,7 @@ class Site:
         self.s = requests.Session()
         self.tokens, self.flow_ids, self.status, self.ts = {}, {}, '', ''
         self.pwd = ''
+        self.hidden = []
 
     def api_get(self, req, target, interval=1):
         req['format'] = 'json'
@@ -220,6 +221,7 @@ class Site:
         return ret
 
     def get_text_by_revid(self, revid_list):
+        self.hidden = []
         d = dict(zip(revid_list, [i for i in range(len(revid_list))]))
         ret = [''] * len(revid_list)
         try:
@@ -239,9 +241,12 @@ class Site:
                 if 'revisions' not in v:
                     continue
                 for rev in v['revisions']:
-                    if 'revid' not in rev or '*' not in rev:
+                    if 'revid' not in rev:
                         continue
-                    ret[d[str(rev['revid'])]] = rev['*']
+                    if 'texthidden' in rev:
+                        self.hidden.append(d[str(rev['revid'])])
+                        continue
+                    ret[d[str(rev['revid'])]] = rev.get('*')
 
         return ret
 

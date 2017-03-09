@@ -74,7 +74,7 @@ def dablink_edit_usertalk(site, user, idlist):
 
     tmp = [True] * len(idlist)
     for i, ids in enumerate(idlist):
-        if site.has_dup_rev(ids[4], ids[5]):
+        if not ids[-1] or site.has_dup_rev(ids[4], ids[5]):
             tmp[i] = False
     idlist = [ids for i, ids in enumerate(idlist) if tmp[i]]
     if not idlist:
@@ -112,10 +112,10 @@ def dablink_edit_usertalk(site, user, idlist):
             if notice.splitlines()[-1] in line and sec:
                 lines[li] = sign_re.sub('--~~~~', line)
                 lines.insert(li, items)
-                site.edit(''.join(lines), '/* %s */ %s' % (sectitle, summary), title=user_talk, basets=site.ts, startts=site.ts, print_only=True)
+                site.edit(''.join(lines), '/* %s */ %s' % (sectitle, summary), title=user_talk, basets=site.ts, startts=site.ts, print_only=debug)
                 break
         else:
-            site.edit(notice % items+' --~~~~', summary, title=user_talk, append=True, section='new', sectiontitle=title, nocreate=False, print_only=True)
+            site.edit(notice % items+' --~~~~', summary, title=user_talk, append=True, section='new', sectiontitle=title, nocreate=False, print_only=debug)
 
 
 def dablink_notice(site):
@@ -128,7 +128,7 @@ def dablink_notice(site):
             text = remove_templates(remove_nottext(text))
             new_links = []
             for link in ids[-1]:
-                if re.search(r'\[\[:?%s' % link, text):
+                if re.search(r'\[\[:?%s(\||\]\])' % link, text):
                     new_links.append(link)
             idlist[i] = ids[:-1] + (new_links,)
         dablink_edit_usertalk(site, user, idlist)
@@ -137,7 +137,7 @@ def dablink_notice(site):
 
 def dablink_handle(site):
     global dablink_dir, notice_dir
-    #if debug: print('dablink_handle:', dablink_dir)
+    if debug: print('dablink_handle:', dablink_dir)
     tmp = dablink_dir.copy()
     for title, idlist in dablink_dir.items():
         cts = cur_timestamp()
@@ -150,8 +150,8 @@ def dablink_handle(site):
         for i, ids in enumerate(idlist):
             #ids[-1] = ids[-1].split('|')
             idlist[i] = ids[:-1] + (ids[-1].split('|'),)
-            all_links.extend(ids[-1])
-        #if debug: print('dablink_handle:', all_links)
+            all_links.extend(idlist[i][-1])
+        if debug: print('dablink_handle:', all_links)
         new_text = link_t_re.sub(lambda s: s.group(0) +
             '{{需要消歧义|date=%s年%d月}}' % (cts[:4],
             int(cts[5:7])) if s.group(1) and
@@ -166,7 +166,7 @@ def dablink_handle(site):
             while True:
                 site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}',
                           title=title, bot=False,
-                          basets=site.ts, startts=site.ts, print_only=True)
+                          basets=site.ts, startts=site.ts, print_only=debug)
                 if site.status != 'editconflict':
                     break
             if site.status:
@@ -180,6 +180,7 @@ def dablink_handle(site):
                 notice_dir[ids[0]].append(ids)
                 print('add')
         del(tmp[title])
+        if debug and title == 'Komica': exit(0)
     #if debug: print('dablink_handle:', notice_dir)
     if notice_dir:
         dablink_notice(site)
@@ -254,12 +255,11 @@ def main(pwd):
             if len(id_que) == (max_n-200):
                 break
         if id_que:
-            rst = dablink.main(site, id_que)
+            rst, id_que = dablink.main(site, id_que)
             for i, r in enumerate(rst):
                 if not r:
                     continue
                 dablink_dir[id_que[i][3]].append(id_que[i] + ('|'.join(r),))
-                #if debug: print(dablink_dir)
         if True:
             dablink_handle(site)
         if leisure:
