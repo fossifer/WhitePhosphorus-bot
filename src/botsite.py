@@ -81,6 +81,8 @@ class Site:
                 result = self.s.get(lang_api,
                                     params=c_req, headers=headers).json()
             except:
+                print(req, target, last_c)
+                raise exception.Error(result['error'])
                 print('api_get_long: Try again after %d sec...' % interval)
                 print(req, target, last_c)
                 time.sleep(interval)
@@ -280,8 +282,12 @@ class Site:
                 if ts:
                     self.ts = v['revisions'][0]['timestamp']
                 if detect_flow:
-                    return [v['revisions'][0]['*'],
-                            v['contentmodel'] == 'flow-board']
+                    if v['contentmodel'] == 'flow-board':
+                        r = self.api_get({'action': 'flow', 'submodule': 'view-header', 'page': title, 'vhformat': 'wikitext'}, 'flow')
+                        return [r.get('view-header', {}).get('result', {}).get('header', {}).get('revision', {}).get('content', {}).get('content', ''), True]
+                    else:
+                        return [v['revisions'][0]['*'], False]
+                            
                 return v['revisions'][0]['*']
             except:
                 self.ts = ''
