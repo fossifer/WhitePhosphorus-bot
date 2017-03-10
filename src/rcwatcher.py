@@ -7,6 +7,7 @@ import datetime
 import botsite
 import dablink
 #import refnotice
+import report
 
 ts_re = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
 
@@ -75,7 +76,7 @@ def main(pwd):
                 continue
             revid = str(revid)
             last_ts, last_id = change['timestamp'], change['revid']
-            # dablink.py
+
             if handled_count & 0x3FF == 0:
                 dablink.ignoring_templates = \
                     dablink.update_ignore_templates(site)
@@ -85,6 +86,8 @@ def main(pwd):
                     id_que.append(('', '', change['timestamp'],
                                    change['logparams']['target_title'],
                                    str(change['pageid']), revid, '0'))
+                elif change['logtype'] in ['protect', 'block']:
+                    report.main(site, change)
             else:
                 if '!nobot!' not in change['comment'] and \
                         change['user'] != bot_name:
