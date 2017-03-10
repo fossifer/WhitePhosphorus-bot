@@ -50,7 +50,6 @@ class Site:
         self.s = requests.Session()
         self.tokens, self.flow_ids, self.status, self.ts = {}, {}, '', ''
         self.pwd = ''
-        self.hidden = []
 
     def api_get(self, req, target, interval=1):
         req['format'] = 'json'
@@ -82,8 +81,6 @@ class Site:
                 result = self.s.get(lang_api,
                                     params=c_req, headers=headers).json()
             except:
-                print(req, target, last_c)
-                raise exception.Error(result['error'])
                 print('api_get_long: Try again after %d sec...' % interval)
                 print(req, target, last_c)
                 time.sleep(interval)
@@ -221,7 +218,6 @@ class Site:
         return ret
 
     def get_text_by_revid(self, revid_list):
-        self.hidden = []
         d = dict(zip(revid_list, [i for i in range(len(revid_list))]))
         ret = [''] * len(revid_list)
         try:
@@ -241,12 +237,9 @@ class Site:
                 if 'revisions' not in v:
                     continue
                 for rev in v['revisions']:
-                    if 'revid' not in rev:
+                    if 'revid' not in rev or '*' not in rev:
                         continue
-                    if 'texthidden' in rev:
-                        self.hidden.append(d[str(rev['revid'])])
-                        continue
-                    ret[d[str(rev['revid'])]] = rev.get('*')
+                    ret[d[str(rev['revid'])]] = rev['*']
 
         return ret
 
@@ -287,12 +280,8 @@ class Site:
                 if ts:
                     self.ts = v['revisions'][0]['timestamp']
                 if detect_flow:
-                    if v['contentmodel'] == 'flow-board':
-                        r = self.api_get({'action': 'flow', 'submodule': 'view-header', 'page': title, 'vhformat': 'wikitext'}, 'flow')
-                        return [r.get('view-header', {}).get('result', {}).get('header', {}).get('revision', {}).get('content', {}).get('content', ''), True]
-                    else:
-                        return [v['revisions'][0]['*'], False]
-                            
+                    return [v['revisions'][0]['*'],
+                            v['contentmodel'] == 'flow-board']
                 return v['revisions'][0]['*']
             except:
                 self.ts = ''
@@ -516,7 +505,8 @@ class Site:
 
 
 def main():
-    pass
+    site = Site()
+    print(requests.get('https://zh.wikipedia.org/w/api.php?action=expandtemplates&format=json&title=API&text=%7B%7Bdoi%7C10.2307%2F2687285%7D%7D&prop=wikitext').json().get('expandtemplates').get('wikitext')[40:50])
 
 
 if __name__ == '__main__':
