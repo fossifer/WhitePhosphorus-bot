@@ -1,13 +1,16 @@
 import re
 import sys
 import time
+import queue
 import atexit
 import signal
 import datetime
+import threading
+import report
 import botsite
 import dablink
+from threading import Timer
 #import refnotice
-import report
 
 ts_re = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
 
@@ -18,6 +21,9 @@ rcnamespace = '0'
 max_n = 500  # nonbots 50, bots 500
 
 bot_name = 'WhitePhosphorus-bot'
+
+# report.py
+report_que = queue.Queue()
 
 
 # TODO: !redirect
@@ -44,14 +50,12 @@ def del_keys(site, last_ts):
     site.flow_ids = tmp
 
 
-def main(pwd):
-    site = botsite.Site()
-    site.client_login(pwd)
+def watch(site):
     #latest_log = site.get_text_by_ids(['5571942'])[0].splitlines()[-1]
     last_ts = '2017-03-10T08:14:00Z'   #ts_re.findall(latest_log)[0]
     last_log = last_ts[:10]
     last_id = 43553415   #int(re.findall(r'Special:diff/(\d+)', latest_log)[0])
-    site.flow_ids = {'Aotfs20132017年3月10日消歧义内链通知': 'tmhrxxwckbjk91x7', 'Dquai2017年3月10日消歧义内链通知': 'tmhaursq292f3ax2', 'Hf96312017年3月10日消歧义内链通知': 'tmhgg6tb6q1e7kjo', 'Joshua Zhan2017年3月10日消歧义内链通知': 'tmhhfehuykqs6gde'}
+    site.flow_ids = {}
 
     def signal_handler(signal, frame):
         print(site.flow_ids)
@@ -87,7 +91,7 @@ def main(pwd):
                                    change['logparams']['target_title'],
                                    str(change['pageid']), revid, '0'))
                 elif change['logtype'] in ['protect', 'block']:
-                    report.main(site, change)
+                    report_que.put(change)
             else:
                 if '!nobot!' not in change['comment'] and \
                         change['user'] != bot_name:
@@ -106,8 +110,22 @@ def main(pwd):
         if id_que:
             dablink.main(site, id_que)
         if leisure:
-            time.sleep(600)
+            time.sleep(1)
             continue
+
+
+def main(pwd):
+    site = botsite.Site()
+    site.client_login(pwd)
+    thread_list = [threading.Thread(target=watch, args=(site,)),
+                   threading.Thread(target=report.main, args=(site, report_que))
+                   ]
+
+    for thread in thread_list:
+        thread.start()
+
+    for thread in thread_list:
+        thread.join()
 
 
 if __name__ == '__main__':

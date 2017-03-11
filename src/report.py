@@ -1,10 +1,13 @@
 import re
 import sys
+import time
 import datetime
 import requests
 import botsite
 from botsite import remove_nottext, cur_timestamp
 from dateutil.relativedelta import relativedelta
+
+delay = 1800
 
 vip = 'Wikipedia:当前的破坏'
 rfp = 'Wikipedia:请求保护页面'
@@ -46,10 +49,12 @@ def translate_date(ts):
         '%Y年%m月%d日%H时%M分%S秒')
 
 
-def ts_delta(ts, ots):
+def ts_delta(ts, ots, tostr=True):
     dt = datetime.datetime.strptime(ts, '%Y-%m-%dT%H:%M:%SZ')
     odt = datetime.datetime.strptime(ots, '%Y-%m-%dT%H:%M:%SZ')
     delta = relativedelta(dt, odt)
+    if not tostr:
+        return (dt-odt).seconds
     ret = ''
     if delta.years:
         ret += '%d年' % delta.years
@@ -120,8 +125,6 @@ def handleVIP(site, change):
                 break
         elif target == user:
             find = True
-    print(''.join(lines))
-    find=False
     if find:
         site.edit(''.join(lines), '机器人：更新[[User:%s]]的处理结果' % user,
                   title=vip, bot=True, basets=ts, startts=ts)
@@ -134,8 +137,6 @@ def handleUAA(site, user, result):
     text = site.get_text_by_title(uaa, ts=True)
     ts = site.ts
     newtext, find = insert_result(text, uaa_re, user, result)
-    print(newtext)
-    exit(0)
     if find:
         site.edit(newtext, '机器人：更新[[User:%s]]的处理结果' % user,
                   title=uaa, bot=True, basets=ts, startts=ts)
@@ -161,18 +162,28 @@ def handleRFP(site, change):
     result = '；'.join(result) + '。 --~~~~'
 
     newtext, find = insert_result(text, protect_re, page, '%s\n' % result)
-    print(newtext)
-    exit(0)
     if find:
         site.edit(newtext, '机器人：更新[[:%s]]的处理结果' % page,
                   title=rfp, bot=True, basets=ts, startts=ts)
 
 
-def main(change):
-    if change['logtype'] == 'block':
-        handleVIP(site, change)
-    else:
-        handleRFP(site, change)
+def main(site, report_que):
+    while True:
+        if not len(report_que.queue):
+            time.sleep(120)
+            continue
+        change = report_que.queue[0]
+        ct = cur_timestamp()
+        delta = ts_delta(ct, change.get('timestamp', ct, tostr=False))
+        if delta < delay:
+            time.sleep(delay - delta + 10)  # +10s(θ..θ) to buffer.
+            continue
+
+        change = report_que.get()
+        if change['logtype'] == 'block':
+            handleVIP(site, change)
+        else:
+            handleRFP(site, change)
 
 
 if __name__ == '__main__':
