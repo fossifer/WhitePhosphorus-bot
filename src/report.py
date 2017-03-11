@@ -7,10 +7,13 @@ from botsite import remove_nottext, cur_timestamp
 from dateutil.relativedelta import relativedelta
 
 vip = 'Wikipedia:当前的破坏'
-rfpt = 'Wikipedia:请求保护页面'
+rfp = 'Wikipedia:请求保护页面'
+uaa = 'Wikipedia:需要管理員注意的用戶名'
 
-vandal_re = re.compile(r'===\s*{{\s*[Vv]andal\s*\|\s*(.*?)\s*}}\s*===')
+blank_re = re.compile(r'^\s*$')
+vandal_re = re.compile(r'===\s*{{\s*[Vv]andal\s*\|\s*(?:1=)?(.*?)\s*}}\s*===')
 result_re = re.compile(r'\*\s*[处處]理：\s*')
+uaa_re = re.compile(r'{{\s*[Uu]ser-uaa\s*\|\s*(?:1=)?(.*?)\s*}}')
 
 protect_re = re.compile(r'===\s*\[\[:?(.*?)(?:\|.*?)?\]\]\s*===')
 ts_re = re.compile(r'\d{4}年\d{1,2}月\d{1,2}日 \([日一二三四五六]\)'
@@ -22,6 +25,7 @@ dur_dict = {
 'hours': '小时', 'hour': '小时',
 'days': '天', 'day': '天',
 'weeks': '周', 'week': '周',
+'months': '个月', 'month': '月',
 'years': '年', 'year': '年',
 'indefinite': 'indef'
 }
@@ -62,6 +66,29 @@ def ts_delta(ts, ots):
     return ret
 
 
+def insert_result(text, title_re, tar, result):
+    lines = text.splitlines(True)
+    lines.append('\n')  # For the case that the last line is our target.
+    find, ts = False, 0
+    for i, line in enumerate(lines):
+        target = (title_re.findall(line) or [''])[0]
+        if find:
+            if target or i == len(lines)-1:
+                t = i
+                while t and not lines[t-1].strip('\n'):
+                    t -= 1  # Find the last blank line and insert before it.
+                lines.insert(t, result)
+                break
+            ts += len(ts_re.findall(line))
+            if ts > 1:
+                return '', False
+        elif target == tar:
+            find = True
+
+    return ''.join(lines), find
+
+
+# Although the name is 'handleVIP', UAA is also handled here
 def handleVIP(site, change):
     text = site.get_text_by_title(vip, ts=True)
     ts = site.ts
@@ -93,14 +120,29 @@ def handleVIP(site, change):
                 break
         elif target == user:
             find = True
-
+    print(''.join(lines))
+    find=False
     if find:
         site.edit(''.join(lines), '机器人：更新[[User:%s]]的处理结果' % user,
                   title=vip, bot=True, basets=ts, startts=ts)
 
+    # TODO: UAA should not be handled if the user is an ip
+    handleUAA(site, user, '** %s\n' % result)
 
-def handleRFPT(site, change):
-    text = site.get_text_by_title(rfpt, ts=True)
+
+def handleUAA(site, user, result):
+    text = site.get_text_by_title(uaa, ts=True)
+    ts = site.ts
+    newtext, find = insert_result(text, uaa_re, user, result)
+    print(newtext)
+    exit(0)
+    if find:
+        site.edit(newtext, '机器人：更新[[User:%s]]的处理结果' % user,
+                  title=uaa, bot=True, basets=ts, startts=ts)
+
+
+def handleRFP(site, change):
+    text = site.get_text_by_title(rfp, ts=True)
     ts = site.ts
     page = change.get('title')
     sysop = change.get('user')
@@ -118,33 +160,19 @@ def handleRFPT(site, change):
                         ts_delta(pt['expiry'], ots), sysop))
     result = '；'.join(result) + '。 --~~~~'
 
-    lines = text.splitlines(True)
-    find, ts = False, 0
-    for i, line in enumerate(lines):
-        target = (protect_re.findall(line) or [''])[0]
-        if find:
-            if target or i == len(lines)-1:
-                t = i
-                while t and not line[t-1].strip('\n'):
-                    t -= 1  # Find the last blank line and insert before it.
-                lines.insert(t, '%s\n' % result)
-                break
-            ts += len(ts_re.findall(line))
-            if ts > 1:
-                return None
-        elif target == page:
-            find = True
-
+    newtext, find = insert_result(text, protect_re, page, '%s\n' % result)
+    print(newtext)
+    exit(0)
     if find:
-        site.edit(''.join(lines), '机器人：更新[[:%s]]的处理结果' % page,
-                  title=rfpt, bot=True, basets=ts, startts=ts)
+        site.edit(newtext, '机器人：更新[[:%s]]的处理结果' % page,
+                  title=rfp, bot=True, basets=ts, startts=ts)
 
 
 def main(change):
     if change['logtype'] == 'block':
         handleVIP(site, change)
     else:
-        handleRFPT(site, change)
+        handleRFP(site, change)
 
 
 if __name__ == '__main__':
