@@ -9,7 +9,6 @@ import threading
 import report
 import botsite
 import dablink
-from threading import Timer
 #import refnotice
 
 ts_re = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')

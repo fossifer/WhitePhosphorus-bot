@@ -2,9 +2,9 @@ import re
 import sys
 import time
 import datetime
-import requests
+import ipaddress
 import botsite
-from botsite import remove_nottext, cur_timestamp
+from botsite import cur_timestamp
 from dateutil.relativedelta import relativedelta
 
 delay = 1800
@@ -28,7 +28,7 @@ dur_dict = {
 'hours': '小时', 'hour': '小时',
 'days': '天', 'day': '天',
 'weeks': '周', 'week': '周',
-'months': '个月', 'month': '月',
+'months': '月', 'month': '月',
 'years': '年', 'year': '年',
 'indefinite': 'indef'
 }
@@ -93,27 +93,51 @@ def insert_result(text, title_re, tar, result):
     return ''.join(lines), find
 
 
+def ip_in_range(ip, range):
+    try:
+        target = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return target in range
+
+
+def isip(user):
+    try:
+        ipaddress.ip_network(user)
+    except ValueError:
+        return False
+    return True
+
+
 # Although the name is 'handleVIP', UAA is also handled here
 def handleVIP(site, change):
     text = site.get_text_by_title(vip, ts=True)
     ts = site.ts
     user = change.get('title', '')
-    
     params = change.get('logparams', {})
     duration = translate_dur(params.get('duration'))
     expiry = translate_date(params.get('expiry'))
     sysop = change.get('user')
     if not any([sysop, user]) or not (duration or expiry):
         return None
-    user = user[5:]
+    user, ip_range = user[5:], None
+    ip = isip(user)
     if '/' in user:
-        # TODO: ip range
-        return None
+        # ip range
+        try:
+            ip_range = ipaddress.ip_network(user)
+        except ValueError:
+            # This should not happen, but who knows...
+            print('handleVIP: %s does not appear to be'
+                  'an IPv4 or IPv6 network' % user)
+            return None
 
     lines = text.splitlines(True)
     find = False
-    result = '{{Blocked|%s|ad=%s}}。 --~~~~' % (
-        '至'+expiry if expiry else duration, sysop)
+    result = '{{Blocked|%s|ad=%s}}' % ('至'+expiry if expiry else duration, sysop)
+    if ip_range:
+        result += '<small>（对%s的广域封禁）</small>' % user
+    result += '。 --~~~~'
     for i, line in enumerate(lines):
         target = (vandal_re.findall(line) or [''])[0]
         if find:
@@ -123,14 +147,16 @@ def handleVIP(site, change):
             if match:
                 lines[i] = '* 处理：%s\n' % result
                 break
-        elif target == user:
-            find = True
+        elif target:
+            if target == user or (ip_range and ip_in_range(target, ip_range)):
+                find = True
+
     if find:
         site.edit(''.join(lines), '机器人：更新[[User:%s]]的处理结果' % user,
                   title=vip, bot=True, basets=ts, startts=ts)
 
-    # TODO: UAA should not be handled if the user is an ip
-    handleUAA(site, user, '** %s\n' % result)
+    if not ip:
+        handleUAA(site, user, '** %s\n' % result)
 
 
 def handleUAA(site, user, result):
@@ -169,12 +195,12 @@ def handleRFP(site, change):
 
 def main(site, report_que):
     while True:
-        if not len(report_que.queue):
+        if not report_que.queue:
             time.sleep(120)
             continue
         change = report_que.queue[0]
         ct = cur_timestamp()
-        delta = ts_delta(ct, change.get('timestamp', ct, tostr=False))
+        delta = ts_delta(ct, change.get('timestamp', ct), tostr=False)
         if delta < delay:
             time.sleep(delay - delta + 10)  # +10s(θ..θ) to buffer.
             continue
