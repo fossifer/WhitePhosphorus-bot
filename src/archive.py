@@ -150,8 +150,9 @@ def update_status(site, new_list):
             total += 1
             botname = match.group(1)
             status = status_list[i] + ('：需要BAG关注！' if title in needbag_list else '')
-            color = 'style="background-color:' + color_list[i] if color_list[i] else ''
+            color = 'style="background-color:%s"' % color_list[i] if color_list[i] else ''
             color = 'style="background-color:#f88"' if '！' in status else color
+            color += ' data-sort-value="%d%d"' % (i, 0 if title in needbag_list else 5)
             create, last_editor, last_ts, last_bag, last_bag_ts = \
                 search_history(site, title)
             req_list.append(req_pattern.format(title, botname, color, status, create, last_editor, last_ts, last_bag, last_bag_ts, show_name=botname+match.group(2) if match.group(2) else botname))
