@@ -51,9 +51,9 @@ def del_keys(site, last_ts):
 
 def watch(site):
     #latest_log = site.get_text_by_ids(['5571942'])[0].splitlines()[-1]
-    last_ts = '2017-03-10T08:14:00Z'   #ts_re.findall(latest_log)[0]
+    last_ts = '2017-03-12T23:14:00Z'   #ts_re.findall(latest_log)[0]
     last_log = last_ts[:10]
-    last_id = 43553415   #int(re.findall(r'Special:diff/(\d+)', latest_log)[0])
+    last_id = 43592354   #int(re.findall(r'Special:diff/(\d+)', latest_log)[0])
     site.flow_ids = {}
 
     def signal_handler(signal, frame):
@@ -116,6 +116,8 @@ def watch(site):
 def main(pwd):
     site = botsite.Site()
     site.client_login(pwd)
+    watch(site)
+    """
     thread_list = [threading.Thread(target=watch, args=(site,)),
                    threading.Thread(target=report.main, args=(site, report_que))
                    ]
@@ -125,6 +127,7 @@ def main(pwd):
 
     for thread in thread_list:
         thread.join()
+    """
 
 
 if __name__ == '__main__':

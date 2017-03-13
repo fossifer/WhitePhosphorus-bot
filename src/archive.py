@@ -12,6 +12,7 @@ newline = r'\r?\n'
 request_title = r'=\s*請求測試許可\s*='
 testing_title = r'=\s*正在測試的機械人\s*='
 tested_title = r'=\s*已完成測試的機械人\s*='
+tail_title = r'=\s*申請覆核\s*='
 
 archive_prefix = (
     "{{存檔頁}}\n'''This is an archive page. "
@@ -22,9 +23,9 @@ request_re = re.compile(r'%s(.*?)%s' % (request_title + newline, newline + testi
                         re.DOTALL)
 testing_re = re.compile(r'%s(.*?)%s' % (testing_title + newline, newline + tested_title),
                         re.DOTALL)
-tested_re = re.compile(r'%s(.*?)$' % (tested_title + newline), re.DOTALL)
+tested_re = re.compile(r'%s(.*?)%s' % (tested_title + newline, tail_title), re.DOTALL)
 section_re = [request_re, testing_re, tested_re]
-transclude_re = re.compile(r'{{[\s\n\r]*(.*?)[\s\n\r]*}}', re.DOTALL)
+transclude_re = re.compile(r'{{\s*(.*?)\s*}}', re.DOTALL)
 
 delete_re = re.compile(r'<s>[\s\S]*?</s>|<del>[\s\S]*?</del>')
 
@@ -85,17 +86,18 @@ def check_status(site, title, origin):
     delay = (now-old).days
     if delay >= complete_delay_days:
         # Rev, Artoria: Are these mutually exclusive? If so, do a hard return.
+        ## lziad: Completed.
         if site.template_in_page(group_tested, text=text):
             ret = STATUS_TESTED
         if site.template_in_page(group_success, text=text):
             ret = STATUS_SUCCESS
         if site.template_in_page(group_failure, text=text):
-            ret = STATUS_FAILURE
+            return STATUS_FAILURE
     else:
         if site.template_in_page(group_tested, text=text):
             ret = origin
         if site.template_in_page(group_success, text=text):
-            ret = STATUS_TESTED
+            return STATUS_TESTED
 
     return ret
 
@@ -178,42 +180,41 @@ def main(pwd):
     new_list = [[], [], [], [], []]
 
     # Rev, Artoria: maybe old/new_index => old/new_status?
-    for old_index, sub_list in enumerate(reversed(old_list)):
-        # Correspond to reversed(section_states)
-        old_index = 2 - old_index
+    for old_status, sub_list in reversed(list(enumerate(old_list))):
         for i, title in enumerate(sub_list):
             sub_list[i] = normalize(title)
-            new_index = check_status(site, sub_list[i], old_index)
-            new_list[new_index].append(sub_list[i])
-            moved += (0 <= new_index < 3 and new_index != old_index)
-            archived_s += (new_index == 3)
-            archived_f += (new_index == 4)
+            new_status = check_status(site, sub_list[i], old_status)
+            new_list[new_status].append(sub_list[i])
+            moved += (0 <= new_status < 3 and new_status != old_status)
+            archived_s += (new_status == 3)
+            archived_f += (new_status == 4)
 
-    update_status(site, new_list)
+    #update_status(site, new_list)
 
-    if not any([moved, archived_s, archived_f]):
-        return None
+    #if not any([moved, archived_s, archived_f]):
+        #return None
     summary = '机器人：移动%d个申请，存档%d个申请' % (moved, archived_s + archived_f)
     summary_a = '机器人：存档%d个申请'
     new_list = ['\n{{'+'}}\n{{'.join(sub_list)+'}}\n' for sub_list in new_list]
     new_text = re.search(r'([\s\S]*?)' + request_title, all_text).groups(0)[0] +\
                request_title.replace(r'\s*', '') + new_list[0] +\
                testing_title.replace(r'\s*', '') + new_list[1] +\
-               tested_title.replace(r'\s*', '') + new_list[2]
+               tested_title.replace(r'\s*', '') + new_list[2] +\
+               re.search(r'(\n%s[\s\S]*)$' % tail_title, all_text).groups(0)[0]
     site.edit(new_text, summary, title=working_title, minor=True, bot=True,
-              basets=basets, startts=startts)
+              basets=basets, startts=startts, print_only=True)
     if archived_s:
         old_text = site.get_text_by_title(success_title)
         if not old_text:
             new_list[3] = archive_prefix + new_list[3]
         site.edit(new_list[3], summary_a % archived_s, title=success_title,
-                  append=old_text, nocreate=False, minor=True, bot=True)
+                  append=old_text, nocreate=False, minor=True, bot=True, print_only=True)
     if archived_f:
         old_text = site.get_text_by_title(failure_title)
         if not old_text:
             new_list[4] = archive_prefix + new_list[4]
         site.edit(new_list[4], summary_a % archived_s, title=failure_title,
-                  append=old_text, nocreate=False, minor=True, bot=True)
+                  append=old_text, nocreate=False, minor=True, bot=True, print_only=True)
 
 
 if __name__ == '__main__':
