@@ -3,6 +3,7 @@
 import re
 import sys
 import time
+import queue
 import datetime
 import collections
 import difflib
@@ -20,8 +21,10 @@ deny_re = re.compile(r'{{\s*[Bb]ots\s*\|\s*deny\s*=\s*([\s\S]*?)}}')
 dab_needed = r'(?![ \t]*[\r\n]?{{\s*(需要消歧[义義]|連結消歧義|链接消歧义|' \
              '[Dd]isambiguation needed))'
 link_re = re.compile(r'\[\[:?(.*?)(\|.*?)?\]\]')
-link_t_re = re.compile(r'\[\[:?((?:{0}.)*?)(\|(?:{0}.)*?)?\]\]{0}'
-                       .format(dab_needed))
+    #link_t_re = re.compile(r'\[\[:?((?:{0}.)*?)(\|(?:{0}.)*?)?\]\]{0}'
+#.format(dab_needed))
+# {{需要消歧义|{{orz}}}} ???
+link_t_re = re.compile(r'(\[\[:?((?:(?!\]\]).)*?)(?:\|(?:(?!\]\]).)*?)?\]\])(?:[ \t]*[\r\n]?{{\s*(?:需要消歧[义義]|連結消歧義|链接消歧义|[Dd]isambiguation needed).*?}})?')
 link_invalid = '<>[]|{}'
 # do not forget to use lower()
 ns_re = re.compile(r'^category\s*:|^分[类類]\s*:|'
@@ -36,7 +39,9 @@ pycomment_re = re.compile(r'[ \t]*#.*?[\r\n]')
 
 last_log, ignoring_templates = '', ''
 
-max_n = 500  # nonbots 50, bots 500
+max_n = 200
+delay = 600
+debug = False
 
 bot_name, bot_name_l = 'WhitePhosphorus-bot', 'whitePhosphorus-bot'
 
@@ -140,12 +145,13 @@ def find_disambig_links(site, id_que, new_list, old_list):
                     '标题“<nowiki>%s</nowiki>”含有非法字符“%s”，请复查。'
                     % (id_que[i][0], id_que[i][3], id_que[i][5],
                        id_que[i][5], id_que[i][2], tuple[0], c), id_que[i][2])
-                """
+                
                 print('检查User:%s于[[%s]]做出的版本号%s'
                       '（[[Special:diff/%s|差异]]），时间戳%s的编辑时遇到异常：'
                       '标题“<nowiki>%s</nowiki>”含有非法字符“%s”，请复查。'
                       % (id_que[i][0], id_que[i][3], id_que[i][5],
                          id_que[i][5], id_que[i][2], tuple[0], c))
+                """
                 continue
             if tuple[0]:
                 link_dict[tuple[0]] = link_dict.get(tuple[0], 0) + 1
@@ -205,11 +211,81 @@ def is_disambig(site, ids):
     return ret
 
 
+def ts_delta(ts, ots):
+    dt = datetime.datetime.strptime(ts, '%Y-%m-%dT%H:%M:%SZ')
+    odt = datetime.datetime.strptime(ots, '%Y-%m-%dT%H:%M:%SZ')
+    return (dt-odt).seconds
+
+
+def ndab(site, dab_que):
+    while True:
+        if not dab_que.queue:
+            time.sleep(60)
+            continue
+        title = dab_que.queue[0]
+        if debug: print('ndab', dab_que.queue)
+        if site.template_in_page('In use', title=title):
+            dab_que.get()  # Just forget it!
+            continue
+        text = site.get_text_by_title(title, ts=True)
+        ts = site.get_ts()
+        if not ts:
+            dab_que.get()
+            continue
+        ct = cur_timestamp()
+        delta = ts_delta(ct, ts)
+        if delta < delay:
+            time.sleep(delay - delta + 5)
+            continue
+
+        dab_que.get()
+        if debug: print('ndab:', title)
+        y, m = ct[:4], int(ct[5:7])
+        all_links = list(set([t[0] for t in link_re.findall(
+            remove_templates(site, remove_nottext(text))) \
+                         if t[0] and not ns_re.search(t[0].lower())]))
+        rst = []
+        i = 0
+        while i < len(all_links):
+            if i+max_n <= len(all_links):
+                rst.extend(site.is_disambig(all_links[i:i+max_n]))
+                i += max_n
+            else:
+                rst.extend(site.is_disambig(all_links[i:]))
+                break
+        dab_links = [link for i, link in enumerate(all_links) if rst[i]]
+        new_text = link_t_re.sub(lambda s: s.group(1) +
+                         r'{{需要消歧义|date=%s年%d月}}' % (y, m) if s.group(2) and
+                         s.group(2) in dab_links else s.group(1), text)
+        if debug:
+            print('ndab::', new_text.count('{{需要消歧义'), len(dab_links), len(all_links))
+            continue
+        site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}',
+                  title=title, bot=False,
+                  basets=ts, startts=ts)
+
+
+def get_ns(site, ids, ignore_redirect=True):
+    id_str = '|'.join(ids)
+    id_dict = collections.defaultdict(list)
+    for i, id in enumerate(ids):
+        id_dict[id].append(i)
+
+    ret = [-1] * len(ids)
+    rst = site.api_post({'action': 'query', 'prop': 'info', 'pageids': id_str}).get('query')
+    for k, v in rst.get('pages', {}).items():
+        ns = v.get('ns', -1) if 'redirect' not in v else -1
+        for index in id_dict[str(k)]:
+            ret[index] = ns
+    return ret
+
+
 def main(site, id_que):
     # Step 0: exclude disambiguation pages
     id_list = [tuple[4] for tuple in id_que]
     dab_list = is_disambig(site, id_list)
-    id_que = [tuple for i, tuple in enumerate(id_que) if not dab_list[i]]
+    ns_list = get_ns(site, id_list)
+    id_que = [tuple for i, tuple in enumerate(id_que) if not dab_list[i] and not ns_list[i]]
     revid_que = [tuple[5] for tuple in id_que]
     old_revid_que = [tuple[6] for tuple in id_que]
 
@@ -219,12 +295,15 @@ def main(site, id_que):
 
     # Step 2: find diffs and pick out disambig links added
     rst = find_disambig_links(site, id_que, new_list, old_list)
+    ret = set()
 
     # Step 3: Log, notice and resume next
     for i, r in enumerate(rst):
         if not r:
             continue
-
+        ret.add(id_que[i][3])
+        if debug: continue
+        """
         if site.template_in_page('In use', title=id_que[i][3]):
             continue
 
@@ -247,17 +326,17 @@ def main(site, id_que):
         if site.status == 'nochange' or site.status == 'pagedeleted':
             continue
         elif site.status:
-            """
+            '''
             log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s "
                 "－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/"
                 "dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3],
                 site.status, '、'.join(r), id_que[i][3]), site.ts, red=True)
-            """
+            '''
             print("保存[[%s]]失败：%s！需要消歧义的内链有：%s "
                   "－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/"
                   "dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3],
                       site.status, '、'.join(r), id_que[i][3]))
-
+        """
         # judge whether to notice user or not
         if not id_que[i][0]:
             continue
@@ -265,6 +344,7 @@ def main(site, id_que):
         [talk_text, is_flow] = site.get_text_by_title(user_talk,
                                                       detect_flow=True,
                                                       ts=True)
+        talk_ts = site.get_ts()
         will_notify = site.editcount(id_que[i][0]) >= 100 \
                 and judge_allowed(talk_text) \
                 and not site.has_dup_rev(id_que[i][4], id_que[i][5])
@@ -284,8 +364,9 @@ def main(site, id_que):
 
         # notice
         if is_flow:
-            if (user_talk+title) in site.flow_ids:
-                id = site.flow_ids[user_talk+title]
+            fids = site.get_flow_ids()
+            if (user_talk+title) in fids:
+                id = fids[user_talk+title]
                 site.flow_reply('Topic:'+id, id, '补充：\n'+item)
             else:
                 site.flow_new_topic(user_talk, title, notice % item)
@@ -305,7 +386,7 @@ def main(site, id_que):
                     site.edit(''.join(lines),
                               '/* %s */ %s' % (sectitle, summary),
                               title=user_talk,
-                              basets=site.ts, startts=site.ts)
+                              basets=talk_ts, startts=talk_ts)
                     break
             else:
                 site.edit(notice % item+' --~~~~', summary,
@@ -314,8 +395,10 @@ def main(site, id_que):
 
         # log
         log(site, '检查User:%s（%s通知）于%s的编辑时发现%s' % (id_que[i][0],
-            '未' if site.status else '已', id_que[i][2], item[2:]),
-            id_que[i][2], red=site.status)
+            '未' if site.get_status() else '已', id_que[i][2], item[2:]),
+            id_que[i][2], red=site.get_status())
+    if debug: print('id_que', ret)
+    return ret
 
 
 if __name__ == '__main__':

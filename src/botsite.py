@@ -2,6 +2,7 @@ import re
 import time
 import json
 import datetime
+import threading
 import collections
 import requests
 import exception
@@ -21,7 +22,6 @@ nowiki_re = re.compile(r'<nowiki>[\s\S]*?</nowiki>|<pre>[\s\S]*?</pre>')
 bot_name = 'WhitePhosphorus-bot'
 
 maxlag = 5.0
-max_n = 500  # nonbots 50, bots 500
 
 
 def cur_timestamp():
@@ -38,9 +38,9 @@ def check_csrf(f):
         site = args[0]
         if not site.check_user():
             site.client_login()
-            if 'csrf' not in site.tokens:
-                site.tokens['csrf'] = \
-                    site.query_tokens('csrf').get('csrftoken')
+            tmp = self.get_tokens('csrf')
+            if not tmp:
+                site.set_tokens('csrf', site.query_tokens('csrf').get('csrftoken'))
         return f(*args, **kwargs)
     return wrapper
 
@@ -49,11 +49,45 @@ class Site:
     def __init__(self):
         self.s = requests.Session()
         self.tokens, self.flow_ids, self.status, self.ts = {}, {}, '', ''
+        self._tokens_l, self._flow_ids_l, self._status_l, self._ts_l = \
+            (threading.Lock(),) * 4
         self.pwd = ''
+
+    def get_tokens(self, key, default=None):
+        with self._tokens_l:
+            return self.tokens.get('key', default)
+
+    def set_tokens(self, key, value):
+        with self._tokens_l:
+            self.tokens['key'] = value
+
+    def get_flow_ids(self):
+        with self._flow_ids_l:
+            return self.flow_ids
+    
+    def set_flow_ids(self, key, value):
+        with self._flow_ids_l:
+            self.flow_ids[key] = value
+
+    def get_status(self):
+        with self._status_l:
+            return self.status
+    
+    def set_status(self, value):
+        with self._status_l:
+            self.status = value
+
+    def get_ts(self):
+        with self._ts_l:
+            return self.ts
+    
+    def set_ts(self, value):
+        with self._ts_l:
+            self.ts = value
 
     def api_get(self, req, target, interval=1):
         req['format'] = 'json'
-        self.status = ''
+        self.set_status('')
         try:
             result = self.s.get(lang_api, params=req, headers=headers).json()
         except:  # json.decoder.JSONDecodeError:
@@ -72,7 +106,7 @@ class Site:
 
     def api_get_long(self, req, target, last_c='', interval=1):
         req['format'] = 'json'
-        self.status = ''
+        self.set_status('')
         last_cont = {'continue': last_c}
         while True:
             c_req = req.copy()
@@ -80,20 +114,19 @@ class Site:
             try:
                 result = self.s.get(lang_api,
                                     params=c_req, headers=headers).json()
-            except:
+            except requests.exceptions.ConnectionError as error:
+                print(error)
                 print('api_get_long: Try again after %d sec...' % interval)
-                print(req, target, last_c)
                 time.sleep(interval)
                 for t in self.api_get_long(req, target, last_cont['continue'],
                                            interval * 2):
                     yield t
                 break
             if 'error' in result:
-                print(req, target, last_c)
+                print(result)
                 raise exception.Error(result['error'])
             if 'warnings' in result:
-                print('api_get_long: Warning: %s' % result['warnings'])
-                print(req, target, last_c)
+                print('api_get_long: Warning:', result['warnings'])
             if target in result:
                 yield result[target]
             if 'continue' not in result:
@@ -102,12 +135,12 @@ class Site:
 
     def api_post(self, data, interval=1):
         data['format'], data['utf8'], data['maxlag'] = 'json', '1', maxlag
-        self.status, rst = '', None
+        self.set_status('')
+        rst = None
         try:
             rst = self.s.post(lang_api, data=data, headers=headers).json()
         except:
             print('api_post: Try again after %d sec...' % interval)
-            print(data)
             time.sleep(interval)
             return self.api_post(data, interval * 2)
         if 'error' in rst:
@@ -120,7 +153,9 @@ class Site:
                 print('Try again after %f sec...' % lag_sec)
                 time.sleep(lag_sec)
                 return self.api_post(data, lag_sec)
-            self.status = code
+            self.set_status(code)
+        elif 'warnings' in rst:
+            print('api_post: Warning:', rst['warnings'])
         return rst
 
     def query_tokens(self, type):
@@ -152,7 +187,7 @@ class Site:
 
     def client_login(self, pwd=None):
         data = {'logintoken': self.query_tokens('login')['logintoken']}
-        self.tokens['login'] = data['logintoken']
+        self.set_tokens('login', data['logintoken'])
         data['username'] = bot_name
         data['password'] = pwd if pwd is not None else self.pwd
         data['action'] = 'clientlogin'
@@ -166,7 +201,7 @@ class Site:
         if 'warnings' in result:
             print('Warning: %s' % result['warnings'])
         if result.get('status') == 'PASS':
-            self.tokens['csrf'] = self.query_tokens('csrf').get('csrftoken')
+            self.set_tokens('csrf',self.query_tokens('csrf').get('csrftoken'))
             return None
         else:
             raise exception.Error(result.get('message', 'Login Failed'))
@@ -175,6 +210,8 @@ class Site:
     def exact_title(self, title):
         r = self.api_get({'action': 'query', 'titles': title, 'redirects': '1',
                          'converttitles': '1'}, 'query')
+        if not r:
+            return title
         if 'normalized' in r:
             title = r['normalized'][0]['to']
         if 'converted' in r:
@@ -221,25 +258,24 @@ class Site:
         d = dict(zip(revid_list, [i for i in range(len(revid_list))]))
         ret = [''] * len(revid_list)
         try:
-            r = self.api_get_long({'action': 'query', 'prop': 'revisions',
+            r = self.api_post({'action': 'query', 'prop': 'revisions',
                                    'rvprop': 'content|ids',
-                                   'revids': '|'.join(revid_list)}, 'query')
+                                   'revids': '|'.join(revid_list)}).get('query')
         except requests.exceptions.ConnectionError as error:
             print(error)
             print('get_text_by_revid: try again...')
             return self.get_text_by_revid(revid_list)
 
-        for chunk in r:
-            # print(json.dumps(chunk, indent=4, sort_keys=True))
-            if 'pages' not in chunk:
+        if not r or 'pages' not in r:
+            print(revid_list)
+            return ret
+        for k, v in r['pages'].items():
+            if 'revisions' not in v:
                 continue
-            for k, v in chunk['pages'].items():
-                if 'revisions' not in v:
+            for rev in v['revisions']:
+                if 'revid' not in rev or '*' not in rev:
                     continue
-                for rev in v['revisions']:
-                    if 'revid' not in rev or '*' not in rev:
-                        continue
-                    ret[d[str(rev['revid'])]] = rev['*']
+                ret[d[str(rev['revid'])]] = rev['*']
 
         return ret
 
@@ -278,13 +314,13 @@ class Site:
         for k, v in r.items():
             try:
                 if ts:
-                    self.ts = v['revisions'][0]['timestamp']
+                    self.set_ts(v['revisions'][0]['timestamp'])
                 if detect_flow:
                     return [v['revisions'][0]['*'],
                             v['contentmodel'] == 'flow-board']
                 return v['revisions'][0]['*']
             except:
-                self.ts = ''
+                self.set_ts('')
                 if detect_flow:
                     return ['', False]
                 return ''
@@ -294,7 +330,7 @@ class Site:
                'prop': 'revisions', 'rvprop': 'content|timestamp'}
         r = self.api_get(req, 'query')['pages']
         temp = r.get(pageid, '')
-        self.ts = temp['revisions'][0]['timestamp']
+        self.set_ts(temp['revisions'][0]['timestamp'])
         return temp['revisions'][0]['*'] if temp else ''
 
     def template_in_page(self, names, title=None, text=None):
@@ -307,6 +343,8 @@ class Site:
             req = {'action': 'parse', 'text': text, 'prop': 'templates',
                    'contentmodel': 'wikitext'}
         r = self.api_post(req).get('parse')
+        if not r:
+            return False
         templates = r.get('templates', [{}])
         for t in templates:
             if t.get('*')[9:] in names:
@@ -362,7 +400,7 @@ class Site:
         if check_title:
             title = self.exact_title(title)
         data = {'action': 'edit', 'text': text,
-                'summary': summary, 'token': self.tokens['csrf']}
+                'summary': summary, 'token': self.get_tokens('csrf')}
         if title is None:
             data['pageid'] = str(pageid)
         else:
@@ -387,8 +425,8 @@ class Site:
             data['captchaid'], data['captchaword'] = captchaid, captchaword
 
         rst = self.api_post(data)
-        if self.status.startswith('noedit') or \
-                self.status.startswith('cantcreate'):
+        st = self.get_status()
+        if st.startswith('noedit') or st.startswith('cantcreate'):
             print('Error: Maybe the bot is blocked and it will terminate.')
             exit(0)
         time.sleep(interval)
@@ -396,9 +434,9 @@ class Site:
         if 'edit' in rst and 'result' in rst['edit'] and \
                 rst['edit']['result'] == 'Success':
             if 'nochange' in rst['edit']:
-                self.status = 'nochange'
+                self.set_status('nochange')
             else:
-                self.status = ''
+                self.set_status('')
         else:
             print('Error: Page not saved, see the following result.')
             print(json.dumps(rst, indent=4, sort_keys=True))
@@ -412,14 +450,14 @@ class Site:
                           captchaid=rst['edit']['captcha'].get('id'),
                           captchaword=word)
             elif rst.get('edit', {}).get('abusefilter', {}).get('id'):
-                self.status = 'abusefilter #%d' % \
-                    rst['edit']['abusefilter']['id']
+                self.set_status('abusefilter #%d' % \
+                    rst['edit']['abusefilter']['id'])
                 if 'info' in rst['edit']:
                     print(rst['edit']['info'])
                 else:
                     print('Hit abusefilter #%d!' % rst['abusefilter']['id'])
             elif 'error' not in rst:
-                self.status = json.dumps(rst)
+                self.set_status(json.dumps(rst))
 
     @check_csrf
     def flow_new_topic(self, page, topic, content, check_title=False):
@@ -429,20 +467,20 @@ class Site:
         rst = self.api_post({'action': 'flow', 'submodule': 'new-topic',
                              'page': page, 'nttopic': topic,
                              'ntcontent': content,
-                             'token': self.tokens['csrf']})
+                             'token': self.get_tokens('csrf')})
 
         if 'flow' in rst and 'new-topic' in rst['flow'] and 'status' \
                 in rst['flow']['new-topic'] and \
                 rst['flow']['new-topic']['status'] == 'ok':
-            self.flow_ids[page + topic] = \
-                rst['flow']['new-topic']['committed']['topiclist']['topic-id']
-            self.status = ''
+            self.set_flow_ids(page + topic,
+                rst['flow']['new-topic']['committed']['topiclist']['topic-id'])
+            self.set_status('')
             time.sleep(6)
         else:
             print('Error: New topic not created, see the following result.')
             print(json.dumps(rst, indent=4, sort_keys=True))
             if 'error' not in rst:
-                self.status = json.dumps(rst)
+                self.set_status(json.dumps(rst))
 
     @check_csrf
     def flow_unlock_topic(self, page, reason):
@@ -450,7 +488,7 @@ class Site:
                              'submodule': 'lock-topic',
                              'cotmoderationState': 'unlock',
                              'cotreason': reason,
-                             'token': self.tokens['csrf']})
+                             'token': self.get_tokens('csrf')})
         print(json.dumps(rst, indent=4, sort_keys=True))
 
     @check_csrf
@@ -458,17 +496,17 @@ class Site:
         rst = self.api_post({'action': 'flow', 'page': page,
                              'submodule': 'reply', 'repreplyTo': id,
                              'repcontent': content,
-                             'token': self.tokens['csrf']})
+                             'token': self.get_tokens('csrf')})
 
         if 'flow' in rst and 'reply' in rst['flow'] \
                 and 'status' in rst['flow']['reply'] \
                 and rst['flow']['reply']['status'] == 'ok':
-            self.status = ''
+            self.set_status('')
             time.sleep(6)
         else:
             if 'error' in rst and 'permissions' in rst['error']:
                 if retry:
-                    self.status = 'topic locked'
+                    self.set_status('topic locked')
                 else:
                     self.flow_unlock_topic(page, '机器人：发送新的通知')
                     self.flow_reply(page, id, content, retry=True)
@@ -476,7 +514,7 @@ class Site:
                 print('Error: reply not saved, see the following result.')
                 print(json.dumps(rst, indent=4, sort_keys=True))
                 if 'error' not in rst:
-                    self.status = json.dumps(rst)
+                    self.set_status(json.dumps(rst))
 
     def has_dup_rev(self, pageid, revid, limit=50):
         limit += 1
@@ -505,8 +543,7 @@ class Site:
 
 
 def main():
-    site = Site()
-    print(requests.get('https://zh.wikipedia.org/w/api.php?action=expandtemplates&format=json&title=API&text=%7B%7Bdoi%7C10.2307%2F2687285%7D%7D&prop=wikitext').json().get('expandtemplates').get('wikitext')[40:50])
+    pass
 
 
 if __name__ == '__main__':

@@ -189,10 +189,10 @@ def main(pwd):
             archived_s += (new_status == 3)
             archived_f += (new_status == 4)
 
-    #update_status(site, new_list)
+    update_status(site, new_list)
 
-    #if not any([moved, archived_s, archived_f]):
-        #return None
+    if not any([moved, archived_s, archived_f]):
+        return None
     summary = '机器人：移动%d个申请，存档%d个申请' % (moved, archived_s + archived_f)
     summary_a = '机器人：存档%d个申请'
     new_list = ['\n{{'+'}}\n{{'.join(sub_list)+'}}\n' for sub_list in new_list]
@@ -202,19 +202,19 @@ def main(pwd):
                tested_title.replace(r'\s*', '') + new_list[2] +\
                re.search(r'(\n%s[\s\S]*)$' % tail_title, all_text).groups(0)[0]
     site.edit(new_text, summary, title=working_title, minor=True, bot=True,
-              basets=basets, startts=startts, print_only=True)
+              basets=basets, startts=startts)
     if archived_s:
         old_text = site.get_text_by_title(success_title)
         if not old_text:
             new_list[3] = archive_prefix + new_list[3]
         site.edit(new_list[3], summary_a % archived_s, title=success_title,
-                  append=old_text, nocreate=False, minor=True, bot=True, print_only=True)
+                  append=old_text, nocreate=False, minor=True, bot=True)
     if archived_f:
         old_text = site.get_text_by_title(failure_title)
         if not old_text:
             new_list[4] = archive_prefix + new_list[4]
         site.edit(new_list[4], summary_a % archived_s, title=failure_title,
-                  append=old_text, nocreate=False, minor=True, bot=True, print_only=True)
+                  append=old_text, nocreate=False, minor=True, bot=True)
 
 
 if __name__ == '__main__':

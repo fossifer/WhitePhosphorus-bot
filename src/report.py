@@ -1,6 +1,7 @@
 import re
 import sys
 import time
+import queue
 import datetime
 import ipaddress
 import botsite
@@ -112,7 +113,7 @@ def isip(user):
 # Although the name is 'handleVIP', UAA is also handled here
 def handleVIP(site, change):
     text = site.get_text_by_title(vip, ts=True)
-    ts = site.ts
+    ts = site.get_ts()
     user = change.get('title', '')
     params = change.get('logparams', {})
     duration = translate_dur(params.get('duration'))
@@ -161,7 +162,7 @@ def handleVIP(site, change):
 
 def handleUAA(site, user, result):
     text = site.get_text_by_title(uaa, ts=True)
-    ts = site.ts
+    ts = site.get_ts()
     newtext, find = insert_result(text, uaa_re, user, result)
     if find:
         site.edit(newtext, '机器人：更新[[User:%s]]的处理结果' % user,
@@ -170,7 +171,7 @@ def handleUAA(site, user, result):
 
 def handleRFP(site, change):
     text = site.get_text_by_title(rfp, ts=True)
-    ts = site.ts
+    ts = site.get_ts()
     page = change.get('title')
     sysop = change.get('user')
     details = change.get('logparams', {}).get('details', [])
