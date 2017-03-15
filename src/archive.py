@@ -101,7 +101,7 @@ def check_status(site, title, origin):
 
     return ret
 
-
+"""
 week_list = ['一', '二', '三', '四', '五', '六', '日']
 def ts_to_text(ts):
     if not ts:
@@ -110,7 +110,7 @@ def ts_to_text(ts):
     return '{y}年{m}月{d}日 ({w}) {hh:02d}:{mm:02d} (UTC)'.format(
             y=dt.year, m=dt.month, d=dt.day, w=week_list[dt.weekday()],
             hh=dt.hour, mm=dt.minute)
-
+"""
 
 def search_history(site, title):
     # if there are > 5000 revisions, this will not work
@@ -129,8 +129,7 @@ def search_history(site, title):
             last_bag, last_bag_ts = user, rev.get('timestamp', '')
             break
     create_ts = revisions[-1].get('timestamp', '')
-    return (ts_to_text(create_ts), last_editor, ts_to_text(last_ts),
-            last_bag, ts_to_text(last_bag_ts))
+    return (create_ts, last_editor, last_ts, last_bag, last_bag_ts)
 
 
 def update_status(site, new_list):
@@ -164,9 +163,9 @@ def update_status(site, new_list):
 def main(pwd):
     site = botsite.Site()
     site.client_login(pwd)
-    
+
     init(site)
-    
+
     all_text = site.get_text_by_title(working_title)
     basets, startts = site.ts, cur_timestamp()
 

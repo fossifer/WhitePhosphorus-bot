@@ -10,31 +10,28 @@ import difflib
 import botsite
 from botsite import remove_nottext, cur_timestamp
 
+botname_re = r'[Ww]hitePhosphorus-bot'
+# FIXME: {{Nobots|allow=all}}  (Though I think nobody will do so)
 nobots_re = re.compile(r'{{\s*[Nn]obots\s*}}|'
-                       '{{\s*[Bb]ots\s*\|\s*allow\s*=\s*none\s*}}|'
-                       '{{[Bb]ots\s*\|\s*deny\s*=\s*all\s*}}|'
-                       '{{\s*[Bb]ots\s*\|\s*optout\s*=\s*all\s*}}')
-allow_re = re.compile(r'{{\s*[Bb]ots\s*\|\s*allow\s*=\s*([\s\S]*?)}}')
-deny_re = re.compile(r'{{\s*[Bb]ots\s*\|\s*deny\s*=\s*([\s\S]*?)}}')
+                       r'{{\s*[Bb]ots\s*\|\s*allow\s*=\s*(none|((?!%s).)*?)\s*}}|'
+                       r'{{\s*[Bb]ots\s*\|\s*deny\s*=\s*(all|.*?%s.*?)\s*}}|'
+                       r'{{\s*[Bb]ots\s*\|\s*optout\s*=\s*all\s*}}'  % ((
+                       botname_re,)*2), re.DOTALL)
 
 # update here when a new direct page to {{需要消歧义}} is created
-dab_needed = r'(?![ \t]*[\r\n]?{{\s*(需要消歧[义義]|連結消歧義|链接消歧义|' \
-             '[Dd]isambiguation needed))'
+dab_needed = r'(?:需要消歧[义義]|連結消歧義|链接消歧义|[Dd]isambiguation needed)'
 link_re = re.compile(r'\[\[:?(.*?)(\|.*?)?\]\]')
-    #link_t_re = re.compile(r'\[\[:?((?:{0}.)*?)(\|(?:{0}.)*?)?\]\]{0}'
-#.format(dab_needed))
-# {{需要消歧义|{{orz}}}} ???
-link_t_re = re.compile(r'(\[\[:?((?:(?!\]\]).)*?)(?:\|(?:(?!\]\]).)*?)?\]\])(?:[ \t]*[\r\n]?{{\s*(?:需要消歧[义義]|連結消歧義|链接消歧义|[Dd]isambiguation needed).*?}})?')
-link_invalid = '<>[]|{}'
-# do not forget to use lower()
+link_t_re = re.compile(r'(\[\[:?((?:(?!\]\]).)*?)(?:\|(?:(?!\]\]).)*?)?\]\])'
+                       r'(?:[ \t]*[\r\n]?{{\s*%s.*?}})?' % dab_needed)
+link_invalid = '<>[]|{}'  # do not forget to use lower()
 ns_re = re.compile(r'^category\s*:|^分[类類]\s*:|'
-                   '^file\s*:|^image\s*:|^文件\s*:|^[档檔]案\s*:|'
-                   '^wikipedia\s*:|^wp\s*:|^project\s*:|^[維维]基百科\s*:')
+                   r'^file\s*:|^image\s*:|^文件\s*:|^[档檔]案\s*:|'
+                   r'^wikipedia\s*:|^wp\s*:|^project\s*:|^[維维]基百科\s*:')
 section_re = re.compile(r'(^|[^=])==(?P<title>[^=].*?[^=])==([^=]|$)')
 sign_re = re.compile(r'--\[\[User:WhitePhosphorus-bot\|白磷的机器人\]\]' \
-                     '（\[\[User talk:WhitePhosphorus\|给主人留言\]\]）' \
-                     ' \d{4}年\d{1,2}月\d{1,2}日 \([日一二三四五六]\)' \
-                     ' \d{2}:\d{2} \(UTC\)')
+                     r'（\[\[User talk:WhitePhosphorus\|给主人留言\]\]）' \
+                     r' \d{4}年\d{1,2}月\d{1,2}日 \([日一二三四五六]\)' \
+                     r' \d{2}:\d{2} \(UTC\)')
 pycomment_re = re.compile(r'[ \t]*#.*?[\r\n]')
 
 last_log, ignoring_templates = '', ''
@@ -43,10 +40,8 @@ max_n = 200
 delay = 600
 debug = False
 
-bot_name, bot_name_l = 'WhitePhosphorus-bot', 'whitePhosphorus-bot'
 
-
-def judge_allowed(page_text):
+def judge_allowed(text):
     """
     if following patterns are found in a user's talk page, the bot is denied:
     {{nobots}},
@@ -56,19 +51,7 @@ def judge_allowed(page_text):
     {{bots|deny=<botlist>}} and bot_name in <botlist>
     {{bots|optout=all}}
     """
-    # without <botlist>
-    if nobots_re.findall(page_text):
-        return False
-
-    # with <botlist>
-    allow_list, deny_list = allow_re.findall(page_text), \
-                            deny_re.findall(page_text)
-    if not (allow_list or deny_list):
-        return True
-    a, d = ''.join(allow_list), ''.join(deny_list)
-    # contradictory patterns are considered allowing
-    return (bot_name in a or bot_name_l in a) or \
-        (d and not (bot_name in d or bot_name_l in d or 'all' in d))
+    return nobots_re.search(text) is None
 
 
 def contains_any(src, pat):
@@ -76,38 +59,6 @@ def contains_any(src, pat):
         if c in src:
             return c
     return None
-
-
-def log(site, text, ts, red=False):
-    return None
-    """
-    global last_log
-    text = '\n* [~~~~~] ' + text
-    if red:
-        text = '<span style="color:red">%s</span>' % text
-    if last_log == ts[:10]:
-        site.edit(text, '机器人：消歧义内链日志记录。',
-                  title='User:WhitePhosphorus-bot/log/dablink',
-                  bot=True, append=True)
-        last_log = ts[:10]
-        return None
-    # delete out-dated log and add a new section
-    cur_text = site.get_text_by_ids(['5571942'])[0]
-    strip_start = cur_text.find('== ')
-    today = datetime.datetime.strptime(ts[:10], '%Y-%m-%d')
-    last = today - datetime.timedelta(days=6)
-    strip_end = cur_text.find('== %s ==' % (last.strftime('%Y-%m-%d')))
-    log_text = '\n== %s ==' % ts[:10] + text
-    if strip_start == -1 or strip_end == -1:
-        site.edit(log_text, '机器人：消歧义内链日志记录。',
-                  title='User:WhitePhosphorus-bot/log/dablink',
-                  bot=True, append=True)
-        return None
-    site.edit(cur_text[:strip_start] + cur_text[strip_end:] + log_text,
-              '机器人：消歧义内链日志记录。',
-              title='User:WhitePhosphorus-bot/log/dablink', bot=True)
-    last_log = ts[:10]
-    """
 
 
 def remove_templates(site, text):
@@ -136,22 +87,7 @@ def find_disambig_links(site, id_que, new_list, old_list):
         link_dict = {}
         for tuple in link_re.findall(remove_templates(site,
                 remove_nottext('\n'.join(added_lines)))):
-            c = contains_any(tuple[0], link_invalid)
-            if c is not None:
-                # log: invalid
-                """
-                log(site, '检查User:%s于[[%s]]做出的版本号%s'
-                    '（[[Special:diff/%s|差异]]），时间戳%s的编辑时遇到异常：'
-                    '标题“<nowiki>%s</nowiki>”含有非法字符“%s”，请复查。'
-                    % (id_que[i][0], id_que[i][3], id_que[i][5],
-                       id_que[i][5], id_que[i][2], tuple[0], c), id_que[i][2])
-                
-                print('检查User:%s于[[%s]]做出的版本号%s'
-                      '（[[Special:diff/%s|差异]]），时间戳%s的编辑时遇到异常：'
-                      '标题“<nowiki>%s</nowiki>”含有非法字符“%s”，请复查。'
-                      % (id_que[i][0], id_que[i][3], id_que[i][5],
-                         id_que[i][5], id_que[i][2], tuple[0], c))
-                """
+            if contains_any(tuple[0], link_invalid):
                 continue
             if tuple[0]:
                 link_dict[tuple[0]] = link_dict.get(tuple[0], 0) + 1
@@ -272,7 +208,8 @@ def get_ns(site, ids, ignore_redirect=True):
         id_dict[id].append(i)
 
     ret = [-1] * len(ids)
-    rst = site.api_post({'action': 'query', 'prop': 'info', 'pageids': id_str}).get('query')
+    rst = site.api_post({'action': 'query', 'prop': 'info',
+                         'pageids': id_str}).get('query')
     for k, v in rst.get('pages', {}).items():
         ns = v.get('ns', -1) if 'redirect' not in v else -1
         for index in id_dict[str(k)]:
@@ -297,53 +234,19 @@ def main(site, id_que):
     rst = find_disambig_links(site, id_que, new_list, old_list)
     ret = set()
 
-    # Step 3: Log, notice and resume next
+    # Step 3: notice and resume next
     for i, r in enumerate(rst):
         if not r:
             continue
         ret.add(id_que[i][3])
         if debug: continue
-        """
-        if site.template_in_page('In use', title=id_que[i][3]):
-            continue
 
-        # {{需要消歧义}}
-        while True:
-            # try to edit again and again
-            text = site.get_text_by_title(id_que[i][3], ts=True)
-            # s.group(1) and ...: ignoring uncompleted links '[[]]'
-            new_text = link_t_re.sub(lambda s: s.group(0) +
-                '{{需要消歧义|date=%s年%d月}}' % (id_que[i][2][:4],
-                int(id_que[i][2][5:7])) if s.group(1) and
-                '[[%s]]' % s.group(1) in r else s.group(0), text)
-            site.edit(new_text, '机器人：{{[[Template:需要消歧义|需要消歧义]]}}',
-                      title=id_que[i][3], bot=False,
-                      basets=site.ts, startts=site.ts)
-            if site.status != 'editconflict':
-                break
-
-        # no change means the dablink is already fixed, do not notice
-        if site.status == 'nochange' or site.status == 'pagedeleted':
-            continue
-        elif site.status:
-            '''
-            log(site, "保存[[%s]]失败：%s！需要消歧义的内链有：%s "
-                "－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/"
-                "dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3],
-                site.status, '、'.join(r), id_que[i][3]), site.ts, red=True)
-            '''
-            print("保存[[%s]]失败：%s！需要消歧义的内链有：%s "
-                  "－'''[https://dispenser.homenet.org/~dispenser/cgi-bin/"
-                  "dab_solver.py/zh:%s 修复它！]'''" % (id_que[i][3],
-                      site.status, '、'.join(r), id_que[i][3]))
-        """
         # judge whether to notice user or not
         if not id_que[i][0]:
             continue
         user_talk = 'User talk:%s' % id_que[i][0]
         [talk_text, is_flow] = site.get_text_by_title(user_talk,
-                                                      detect_flow=True,
-                                                      ts=True)
+                detect_flow=True, ts=True)
         talk_ts = site.get_ts()
         will_notify = site.editcount(id_que[i][0]) >= 100 \
                 and judge_allowed(talk_text) \
@@ -358,8 +261,6 @@ def main(site, id_que):
                        id_que[i][3].replace(' ', '_'))
 
         if not will_notify:
-            log(site, '检查User:%s（不通知）于%s的编辑时发现%s' % (
-                id_que[i][0], id_que[i][2], item[2:]), id_que[i][2])
             continue
 
         # notice
@@ -371,16 +272,13 @@ def main(site, id_que):
             else:
                 site.flow_new_topic(user_talk, title, notice % item)
         else:
-            # TODO: the variable s seems not needed
             lines = talk_text.splitlines(True)
-            s, sec = 0, 0
+            sectitle = None
             for li, line in enumerate(lines):
                 m = section_re.match(line)
-                if m is not None:
-                    s += 1
-                    if m.group('title').strip() == title:
-                        sectitle, sec = m.group('title'), s
-                if notice.splitlines()[-1] in line and sec:
+                if m and m.group('title').strip() == title:
+                    sectitle = m.group('title')
+                if notice.splitlines()[-1] in line and sectitle:
                     lines[li] = sign_re.sub('--~~~~', line)
                     lines.insert(li, item+'\n\n')
                     site.edit(''.join(lines),
@@ -393,10 +291,7 @@ def main(site, id_que):
                           title=user_talk, append=True, section='new',
                           sectiontitle=title, nocreate=False)
 
-        # log
-        log(site, '检查User:%s（%s通知）于%s的编辑时发现%s' % (id_que[i][0],
-            '未' if site.get_status() else '已', id_que[i][2], item[2:]),
-            id_que[i][2], red=site.get_status())
+    # Finally: return titles including dablinks
     if debug: print('id_que', ret)
     return ret
 
