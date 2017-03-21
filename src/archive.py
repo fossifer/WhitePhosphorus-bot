@@ -3,6 +3,7 @@ import sys
 import datetime
 import botsite
 from botsite import remove_nottext, cur_timestamp
+from collections import defaultdict
 
 working_title = 'Wikipedia:机器人/申请'
 success_title = 'Wikipedia:机器人/申请/存档/2017年/获批的申请'
@@ -119,7 +120,7 @@ def search_history(site, title):
     for page in pages:
         revisions = page.get('revisions', [])
     if not revisions:
-        return '','','',''
+        return None
     last_editor, last_ts = (revisions[0].get('user', ''),
         revisions[0].get('timestamp', ''))
     last_bag, last_bag_ts = '',''
@@ -129,35 +130,60 @@ def search_history(site, title):
             last_bag, last_bag_ts = user, rev.get('timestamp', '')
             break
     create_ts = revisions[-1].get('timestamp', '')
-    return (create_ts, last_editor, last_ts, last_bag, last_bag_ts)
+    return dict(create_ts=create_ts,
+                last_editor=last_editor,
+                last_ts=last_ts,
+                last_bag=last_bag,
+                last_bag_ts=last_bag_ts)
 
 
 def update_status(site, new_list):
-    table_header = ('{| border="1" class="sortable wikitable plainlinks"\n'
-                    '!机器人名称 !! 状态 !! 创建于 !! 最后编辑者 !! 最后编辑于 !!'
-                    '最后BAG编辑者 !! BAG最后编辑于\n|-\n')
-    table_tail = '\n|}'
-    table_split = '\n|-\n'
+    def table_from_elements(elems):
+        table_header = (r'''\
+                        {| border="1" class="sortable wikitable plainlinks"
+                        !机器人名称 !! 状态 !! 创建于 !! 最后编辑者 !! 最后编辑于 !!
+                        最后BAG编辑者 !! BAG最后编辑于
+                        |-
+                        '''.dedent())
+        table_tail = '\n|}'
+        table_split = '\n|-\n'
+        return table_header + table_split.join(elems) + table_tail
+    
     status_list = ['请求测试许可', '测试中', '测试完成']
     color_list = [None, 'lightgreen', 'lightblue']
-    req_pattern = ('| [[{0}|{show_name}]] <small>[[Special:Contributions/{1}|贡献]]</small>\n|{2}|{3}\n| {4}\n|| {5} ||| {6}\n| {7}|| {8}')
+    req_format = (r'''\
+                    | [[{title}|{show_name}]] <small>[[Special:Contributions/{botname}|贡献]]</small>
+                    | {status_style} | {status}
+                    | {create_ts}
+                    | {last_editor} || {last_ts}
+                    | {last_bag} || {last_bag_ts}'''.dedent())
     req_list = []
-    total = 0
     for i, list in enumerate(new_list[:3]):
         for title in list:
             match = re.search(r'Wikipedia:机器人/申请/([^/]*)(/\d+)?', title)
             if match is None:
                 continue
-            total += 1
+            
             botname = match.group(1)
             status = status_list[i] + ('：需要BAG关注！' if title in needbag_list else '')
             color = 'style="background-color:%s"' % color_list[i] if color_list[i] else ''
             color = 'style="background-color:#f88"' if '！' in status else color
             color += ' data-sort-value="%d%d"' % (i, 0 if title in needbag_list else 5)
-            create, last_editor, last_ts, last_bag, last_bag_ts = \
-                search_history(site, title)
-            req_list.append(req_pattern.format(title, botname, color, status, create, last_editor, last_ts, last_bag, last_bag_ts, show_name=botname+match.group(2) if match.group(2) else botname))
-    site.edit(table_header + table_split.join(req_list) + table_tail, '机器人：现有%d个申请，其中%d个需要BAG关注' % (total, len(needbag_list)), title='User:WhitePhosphorus-bot/RFBA Status', nocreate=False, bot=True)
+            
+            format_dict = search_history(site, title)
+            if format_dict is None:
+                format_dict = defaultdict(lambda: None)
+            format_dict.update({
+                'status_style': color,
+                'status': status,
+                'show_name': (botname + match.group(2)) if match.group(2) else botname})
+            req_list.append(req_format.format_map(format_dict))
+    
+    site.edit(table_from_elements(req_list),
+              '机器人：现有%d个申请，其中%d个需要BAG关注' % (len(req_list), len(needbag_list)),
+              title='User:WhitePhosphorus-bot/RFBA Status',
+              nocreate=False,
+              bot=True)
 
 
 def main(pwd):
