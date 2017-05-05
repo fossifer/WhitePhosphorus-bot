@@ -12,9 +12,8 @@ R2 = {}
 
 
 def draft_generator():
-    for ap in site.api_get_long({'action': 'query', 'list': 'allpages',
-                                 'apnamespace': '118', 'apprefix': '',
-                                 'aplimit': 'max'}, 'query'):
+    for ap in site.api_get_long({'action': 'query', 'apnamespace': '118',
+                                 'list': 'allpages', 'aplimit': 'max'}, 'query'):
         if not ap['allpages']:
             raise StopIteration()
         for page in ap['allpages']:
@@ -57,8 +56,9 @@ def main(pwd):
             last_ts(tmplist)
             tmplist = []
             print(n)
+    last_ts(tmplist)
     print(n)
-    total_num, curtime = 0, datetime.datetime.utcnow()
+    total_num = 0
     content = '本页记录了全部最后编辑大于等于6个月的草稿页面。这个列表不包含跨名字空间的重定向，后者列出于[[/DraftsNeedR2]]。\n\n'
     for i, drafts in enumerate(draftlist):
         title = '== %s%d个月 ==\n' % ('大于等于' * (i == 24), i + 6)
