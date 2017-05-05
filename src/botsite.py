@@ -38,7 +38,7 @@ def check_csrf(f):
         site = args[0]
         if not site.check_user():
             site.client_login()
-            tmp = self.get_tokens('csrf')
+            tmp = site.get_tokens('csrf')
             if not tmp:
                 site.set_tokens('csrf', site.query_tokens('csrf').get('csrftoken'))
         return f(*args, **kwargs)
@@ -64,7 +64,7 @@ class Site:
     def get_flow_ids(self):
         with self._flow_ids_l:
             return self.flow_ids
-    
+
     def set_flow_ids(self, key, value):
         with self._flow_ids_l:
             self.flow_ids[key] = value
@@ -192,7 +192,6 @@ class Site:
         data['password'] = pwd if pwd is not None else self.pwd
         data['action'] = 'clientlogin'
         data['loginreturnurl'] = 'https://zh.wikipedia.org/'
-        self.pwd = pwd
 
         result = self.api_post(data)['clientlogin']
 
@@ -332,6 +331,21 @@ class Site:
         temp = r.get(pageid, '')
         self.set_ts(temp['revisions'][0]['timestamp'])
         return temp['revisions'][0]['*'] if temp else ''
+
+    def parse(self, text):
+        r = self.api_post({'action': 'parse', 'text': text,
+                           'prop': 'text', 'contentmodel': 'wikitext',
+                           'disablelimitreport': 1})
+        if not hasattr(r, 'get'):
+            return ''
+        return r.get('parse', {}).get('text', {}).get('*', '')
+
+    def list_templates(self, text):
+        r = self.api_post({'action': 'parse', 'text': text,
+                           'prop': 'templates', 'contentmodel': 'wikitext'})
+        if not hasattr(r, 'get'):
+            return set()
+        return set([t.get('*', '喵'*9)[9:] for t in r.get('templates', [{}])])
 
     def template_in_page(self, names, title=None, text=None):
         assert((title is None) != (text is None))
@@ -542,7 +556,7 @@ class Site:
         return False
 
 
-def main():
+def main(pwd):
     pass
 
 
