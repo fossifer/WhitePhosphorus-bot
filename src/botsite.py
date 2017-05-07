@@ -165,7 +165,7 @@ class Site:
 
     def check_user(self, interval=1):
         try:
-            r = self.s.get('https://zh.wikipedia.org/w/api.php?'
+            r = self.s.get(lang_api + '?'
                            'action=query&format=json&assert=user').json()
         except:
             print('check_user: Try again after %d sec...' % interval)
@@ -176,7 +176,7 @@ class Site:
 
     def check_bot(self):
         try:
-            r = self.s.get('https://zh.wikipedia.org/w/api.php?'
+            r = self.s.get(lang_api + '?'
                            'action=query&format=json&assert=bot').json()
         except:
             print('check_bot: Try again after %d sec...' % interval)
