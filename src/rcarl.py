@@ -51,7 +51,7 @@ def main(site):
     n_articles = [a for i, a in enumerate(articles) if not to_remove[i]]
     prefix, suffix = lines[0], lines[-2] + '\n' + lines[-1]
     new_text = prefix + '\n |' + '\n |'.join(n_articles) + '\n' + suffix
-    summary = '假装自己是机器人：移除%d个已存在条目' % (len(articles)-len(n_articles))
+    summary = '机器人：移除%d个已存在条目' % (len(articles)-len(n_articles))
     site.edit(new_text, summary, title=working_title, bot=True, minor=True)
 
 
