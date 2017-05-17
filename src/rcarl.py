@@ -14,7 +14,7 @@ def check_create_time(site, articles, exists):
             continue
         r = site.api_get({'action': 'query', 'prop': 'revisions',
                           'rvdir': 'newer', 'rvlimit': 1, 'rvprop': 'timestamp',
-                          'titles': title}, 'query')
+                          'titles': title, 'converttitles': 1}, 'query')
         page = r.get('pages')
         create_ts = None
         for k, v in page.items():
@@ -23,8 +23,8 @@ def check_create_time(site, articles, exists):
                 create_ts = rev[0].get('timestamp')
         if create_ts is None:
             print('%s: Failed to parse created time of [[%s]]' % (cts, title))
+            print(r)
             continue
-        print(title, create_ts)
         create_ts = datetime.datetime.strptime(create_ts, '%Y-%m-%dT%H:%M:%SZ')
         if (cts - create_ts).days >= delay_days:
             ret[i] = True
