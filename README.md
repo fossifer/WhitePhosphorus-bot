@@ -1,6 +1,6 @@
 # WhitePhosphorus-bot
 
-[简体中文](READ.zh-hans.md) - [繁體中文](READ.zh-hant.md)
+[简体中文](README.zh-hans.md) - [繁體中文](README.zh-hant.md)
 
 ## Who am I?
 I'm a bot running on [Chinese wikipedia](https://zh.wikipedia.org).
