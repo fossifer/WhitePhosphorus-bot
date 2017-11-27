@@ -9,7 +9,7 @@ from .botsite import cur_timestamp, get_summary
 
 DEBUG = False
 
-DELAY = 120
+DELAY = 1800
 LONG_SLEEP = 120
 SHORT_SLEEP = 30
 

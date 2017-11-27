@@ -10,7 +10,7 @@ from . import exception
 # TODO: Warning: {'result': {'*': 'This result was truncated because it would
 # otherwise be larger than the limit of 12,582,912 bytes.'}}
 
-debug = True
+debug = False
 
 lang = 'zh'
 
