@@ -572,7 +572,7 @@ class Site:
             else:
                 text = self.get_text_by_id(pageid)
             kwargs['basetimestamp'] = kwargs.get('basetimestamp') or self.ts
-            result = content(self, text)
+            result = content(text)
             if isinstance(result, dict):
                 content = result.get('text', '')
                 kwargs['summary'] = kwargs.get('summary') or result.get('summary', '')
