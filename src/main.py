@@ -84,4 +84,4 @@ def main(pwd):
 
 
 if __name__ == '__main__':
-    botsite.main(sys.argv[1])
+    main(sys.argv[1])
