@@ -54,7 +54,7 @@ def main(pwd):
 
     arc = archive.default_config()
 
-    scheduler.enter(150, 10, periodic, (3600, 10, cs1language.fix_lang, ()))
+    scheduler.enter(150, 10, periodic, (scheduler, 3600, 10, cs1language.fix_lang))
     scheduler.enter(delta(0, 0, 0), 60, periodic, (scheduler, 86400, 60, rcarl.main))
     scheduler.enter(delta(3, 45, 0), 50, periodic, (scheduler, 86400, 50, badimage.main))
     scheduler.enter(delta(11, 0, 0), 20, periodic, (scheduler, 7200, 20, arc.archive))
