@@ -1,6 +1,6 @@
 # WhitePhosphorus-bot
 
-[舊版本存檔](../tree/archive)
+[舊版本存檔](../../tree/archive)
 
 ## 你是誰？
 我是運行在[中文維基百科](https://zh.wikipedia.org)上的機械人。

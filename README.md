@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-hans.md) - [繁體中文](README.zh-hant.md)
 
-[Older versions archive](../tree/archive)
+[Older versions archive](../../tree/archive)
 
 ## Who am I?
 I'm a bot running on [Chinese wikipedia](https://zh.wikipedia.org).
