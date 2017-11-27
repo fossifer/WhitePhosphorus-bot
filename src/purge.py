@@ -1,6 +1,5 @@
-import exception
-from . import botsite
-from .core import EditQueue, now, log
+from . import botsite, exception
+from .core import log
 
 
 DEBUG = True
