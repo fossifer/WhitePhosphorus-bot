@@ -53,16 +53,13 @@ def main(pwd):
                      title='User:WhitePhosphorus-bot/controls/restart',
                      nocreate=True)
 
-    arc = __import__('archive').default_config()
+    arc = __import__('.archive').default_config()
 
-    scheduler.enter(delta(16, 0, 0), 80, periodic,
-                    (scheduler, 86400, 80, __import__('.draft').main))
-    scheduler.enter(delta(11, 0, 0), 20, periodic,
-                    (scheduler, 7200, 20, arc.archive))
-    scheduler.enter(delta(0, 0, 0), 60, periodic,
-                    (scheduler, 86400, 60, __import__('.rcarl').main))
-    scheduler.enter(delta(3, 45, 0), 50, periodic,
-                    (scheduler, 86400, 50, __import__('.badimage').main))
+    scheduler.enter(150, 10, periodic, (3600, 10, __import__('.cs1language').fix_lang, ()))
+    scheduler.enter(delta(0, 0, 0), 60, periodic, (scheduler, 86400, 60, __import__('.rcarl').main))
+    scheduler.enter(delta(3, 45, 0), 50, periodic, (scheduler, 86400, 50, __import__('.badimage').main))
+    scheduler.enter(delta(11, 0, 0), 20, periodic, (scheduler, 7200, 20, arc.archive))
+    scheduler.enter(delta(16, 0, 0), 80, periodic, (scheduler, 86400, 80, __import__('.draft').main))
 
     def check_restart():
         if botsite.Site().get_text_by_title(RESTART_TITLE):

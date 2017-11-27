@@ -1,5 +1,7 @@
 # WhitePhosphorus-bot
 
+[旧版本存档](../tree/archive)
+
 ## 你是谁？
 我是运行在[中文维基百科](https://zh.wikipedia.org)上的机器人。
 

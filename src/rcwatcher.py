@@ -166,7 +166,7 @@ class watcher:
 
     def watch(self):
         if DEBUG:
-            log('fetching rc from %s...' % self.last_ts)
+            # log('fetching rc from %s...' % self.last_ts)
             n = 0
         for change in rc_generator(self.last_ts):
             rcid = change.get('rcid', 0)
@@ -180,7 +180,7 @@ class watcher:
                     log('pushing {type}: {fr} -> {to} on {ts}'.format(type=change['logtype'], fr=change['user'],
                                                                       to=change['title'], ts=change['timestamp']))
                 report_que.put(change)
-        if DEBUG:
+        if DEBUG and n:
             log('%d rc items handled' % n)
 
 

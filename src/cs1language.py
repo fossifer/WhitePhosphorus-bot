@@ -70,9 +70,8 @@ def set_text(match):
 
 
 @check('CS1lang')
-def fix_lang(pwd):
+def fix_lang():
     site = botsite.Site()
-    site.client_login(pwd=pwd)
     count = 0
     for id in site.cat_generator('5163898'):
         EditQueue().push(text=lambda old_text: para_re.sub(set_text, old_text),
@@ -84,4 +83,6 @@ def fix_lang(pwd):
 
 
 if __name__ == '__main__':
-    fix_lang(sys.argv[1])
+    site = botsite.Site()
+    site.client_login(sys.argv[1])
+    fix_lang()
