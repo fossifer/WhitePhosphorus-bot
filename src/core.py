@@ -216,16 +216,15 @@ class InteractiveTask(threading.Thread):
             EditQueue().push(text='failed', title=self.status_page,
                              summary='机器人：未能完成任务' + self.task,
                              bot=True, minor=True)
-        if result_msg:
-            if result_dump:
-                result_msg = result_msg.format(dump='special:permalink/'
-                                                    '{{subst:REVISIONID:%s}}' % self.dump_page)
-                EditQueue().push(text=result_dump, title=self.dump_page,
-                                 summary='机器人：执行任务%s时产生了临时信息' % self.task,
-                                 bot=True, minor=True)
-            EditQueue().push(text=result_msg, title=self.msg_page,
-                             summary='机器人：执行任务%s时产生了消息' % self.task,
+        if result_dump:
+            result_msg = result_msg.format(dump='special:permalink/'
+                                                '{{subst:REVISIONID:%s}}' % self.dump_page)
+            EditQueue().push(text=result_dump, title=self.dump_page,
+                             summary='机器人：执行任务%s时产生了临时信息' % self.task,
                              bot=True, minor=True)
+        EditQueue().push(text=result_msg or '', title=self.msg_page,
+                         summary='机器人：执行任务%s时产生了消息' % self.task,
+                         bot=True, minor=True)
 
     def run(self):
         site = botsite.Site()

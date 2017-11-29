@@ -441,17 +441,21 @@ class Site:
             return 0
         return r.get('users', [{}])[0].get('editcount', 0)
 
-    def cat_generator(self, cat_id):
+    def cat_generator(self, cat_id, get_sortkey=False, startsortkey=None):
         for cat in self.api_get_long({'action': 'query',
                                       'list': 'categorymembers',
                                       'cmpageid': cat_id,
                                       'cmnamespace': '0',
-                                      'cmprop': 'ids|title',
+                                      'cmprop': 'ids|title|sortkey',
+                                      'cmstarthexsortkey': startsortkey,
                                       'cmlimit': 'max'}, 'query'):
             if not cat['categorymembers']:
                 raise StopIteration()
             for page in cat['categorymembers']:
-                yield str(page['pageid'])
+                if get_sortkey:
+                    yield (str(page['pageid']), page['sortkey'])
+                else:
+                    yield str(page['pageid'])
 
     def what_embeds_it(self, pageid=None, title=None, ns='0', id=True):
         assert((pageid is None) != (title is None))

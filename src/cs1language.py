@@ -7,6 +7,7 @@ from .botsite import cur_timestamp, get_summary
 
 # This module is called once an hour.
 MAX_WORK_PER_HOUR = 50
+LAST_SORT_KEY = None
 
 tar_template = '[Cc]ite '
 tar_para = 'language'
@@ -71,15 +72,22 @@ def set_text(match):
 
 @check('CS1lang')
 def fix_lang():
+    global LAST_SORT_KEY
     site = botsite.Site()
-    count = 0
-    for id in site.cat_generator('5163898'):
+    count, leisure = 0, True
+    for id, sortkey in site.cat_generator('5163898', get_sortkey=True, startsortkey=LAST_SORT_KEY):
+        leisure = False
         EditQueue().push(text=lambda old_text: para_re.sub(set_text, old_text),
                          summary=get_summary('CS1lang', '清理[[CAT:引文格式1维护：未识别语文类型]]'),
                          pageid=id, minor=True, bot=True, startts=cur_timestamp())
         count += 1
         if count >= MAX_WORK_PER_HOUR:
+            LAST_SORT_KEY = sortkey
             break
+    else:
+        LAST_SORT_KEY = None
+    if leisure:
+        LAST_SORT_KEY = None
 
 
 if __name__ == '__main__':
