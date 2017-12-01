@@ -1,3 +1,4 @@
+import regex
 import unittest
 from src import cs1language, botsite
 
@@ -12,6 +13,7 @@ test_cases = {
         "{{ infobox settlement | language = English | name = 东亚 {{ cite web | language = zh-hans }} }}",
     "{{cite press release|title=t|language=English|c=d}}": "{{cite press release|title=t|language=en|c=d}}",
     "{{cite press release|title=t|language=English|c=d}": "{{cite press release|title=t|language=English|c=d}",
+    # This fails
     "{{cite press release|title=t|language=English|c=d}test{{cite news|title=n|language=简体中文|a=b}}":
         "{{cite press release|title=t|language=English|c=d}test{{cite news|title=n|language=zh-hans|a=b}}",
 }
@@ -21,6 +23,11 @@ class TestCS1LanguageReplace(unittest.TestCase):
     def test(self):
         for k, v in test_cases.items():
             self.assertEqual(cs1language.para_re.sub(cs1language.set_text, k), v)
+
+    def test_from_input(self):
+        in_path, ans_path = input('input path: ').strip(), input('ans path: ').strip()
+        inp, ans = open(in_path).read(), open(ans_path).read()
+        self.assertEqual(cs1language.para_re.sub(cs1language.set_text, inp), ans)
 
 
 def main(pwd):

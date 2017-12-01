@@ -1,5 +1,5 @@
-import re
 import sys
+import regex
 from . import botsite
 from .core import check, EditQueue
 from .botsite import cur_timestamp, get_summary
@@ -11,9 +11,10 @@ LAST_SORT_KEY = None
 
 tar_template = '[Cc]ite '
 tar_para = 'language'
-para_re = re.compile(r'(?P<prefix>{{\s*%s((?!}}).)*\|\s*%s\s*=\s*)'
-                    '(?P<para>.*?)(?P<suffix>\s*(\||}}))' %
-                    (tar_template, tar_para), re.DOTALL)
+para_re = regex.compile(r'(?P<prefix>{{\s*%s(?:(?!{{|}}).)*?(?P<nest>{{(?:(?!{{).)*?(?&nest)?(?:(?!}}).)*?}})*'
+                        '(?:(?!{{|}}).)*?\|\s*%s\s*=\s*)(?P<para>.*?)'
+                        '(?P<suffix>\s*(\|\s*(?:(?!{{|}}).)*(?&nest)*(?:(?!{{|}}).)*?)?}})' %
+                        (tar_template, tar_para), regex.DOTALL)
 
 sub_dict = {
     r'中文\s*[（(](简体?|簡體?)[）)]|(简体|簡體)(中文|汉语|漢語)': 'zh-hans',
@@ -66,7 +67,7 @@ sub_dict = {
 def set_text(match):
     dest = match.group('para')
     for (key, value) in sub_dict.items():
-        dest = re.sub(r'^(%s)$' % key, value, dest)
+        dest = regex.sub(r'^(%s)$' % key, value, dest)
     return match.group('prefix') + dest + match.group('suffix')
 
 
