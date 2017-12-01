@@ -22,6 +22,7 @@ vandal_re = re.compile(r'===\s*{{\s*[Vv]andal\s*\|\s*(?:1=)?(.*?)\s*}}\s*===')
 result_re = re.compile(r'^\*\s*[处處]理：\s*(<!--[\s\S]*?-->)?\s*$')
 uaa_re = re.compile(r'{{\s*[Uu]ser-uaa\s*\|\s*(?:1=)?(.*?)\s*}}')
 protect_re = re.compile(r'===\s*\[\[:?(.*?)(?:\|.*?)?\]\]\s*===')
+unprotect_re = re.compile(r'==\s*[请請]求解除保[护護]\s*==')
 ts_re = re.compile(r'\d{4}年\d{1,2}月\d{1,2}日 \([日一二三四五六]\)'
                    ' \d{2}:\d{2} \(UTC\)')
 
@@ -225,6 +226,11 @@ def handleRFP(change):
     details = change.get('logparams', {}).get('details', [])
     ots = change.get('timestamp')
     result = ''
+
+    # strip unprotect requests
+    match = unprotect_re.search(text)
+    if match:
+        text = text[:match.start()]
 
     # check if admins have changed their minds
     protect_log = site.api_get({'action': 'query', 'list': 'logevents', 'letype': 'protect',
