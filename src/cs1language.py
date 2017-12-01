@@ -9,7 +9,7 @@ from .botsite import cur_timestamp, get_summary
 MAX_WORK_PER_HOUR = 50
 LAST_SORT_KEY = None
 
-tar_template = '[Cc]ite '
+tar_template = '[Cc]ite |[Cc]itation'
 tar_para = 'language'
 para_re = regex.compile(r'(?P<prefix>{{\s*%s(?:(?!{{|}}).)*?(?P<nest>{{(?:(?!{{).)*?(?&nest)?(?:(?!}}).)*?}})*'
                         '(?:(?!{{|}}).)*?\|\s*%s\s*=\s*)(?P<para>.*?)'
