@@ -80,11 +80,13 @@ def ts_delta(ts, ots, tostr=True, approx=True):
     return ret
 
 
-def insert_result(text, title_re, tar, result):
+def insert_result(text, title_re, tar, result, stop_re=None):
     lines = text.splitlines(True)
     lines.append('\n')  # For the case that the last line is our target.
     found, ts = False, 0
     for i, line in enumerate(lines):
+        if stop_re and stop_re.search(line):
+            break
         target = (title_re.findall(line) or [''])[0]
         if found:
             if target or i == len(lines)-1:
@@ -227,11 +229,6 @@ def handleRFP(change):
     ots = change.get('timestamp')
     result = ''
 
-    # strip unprotect requests
-    match = unprotect_re.search(text)
-    if match:
-        text = text[:match.start()]
-
     # check if admins have changed their minds
     protect_log = site.api_get({'action': 'query', 'list': 'logevents', 'letype': 'protect',
                                 'letitle': page, 'lelimit': 1}, 'query').get('logevents')
@@ -269,7 +266,7 @@ def handleRFP(change):
     if DEBUG:
         log('Attempting to post a new RFP result: %s' % result)
 
-    newtext, found = insert_result(text, protect_re, page, '%s\n' % result)
+    newtext, found = insert_result(text, protect_re, page, '%s\n' % result, stop_re=unprotect_re)
     if found:
         if DEBUG:
             log('A new RFP result will be posted', result, sp=' ')
