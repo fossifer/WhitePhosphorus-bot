@@ -53,7 +53,8 @@ def check_create_time(site, articles, exists):
     return ret
 
 
-def gen_rev(site, text):
+def gen_rev(text):
+    site = botsite.Site()
     lines = text.splitlines()
     articles = [remove_nottext(line.strip()[1:]) for line in lines[1:-2]]
     exists = [False] * len(articles)
@@ -83,4 +84,4 @@ def main():
 
 if __name__ == '__main__':
     site = botsite.Site()
-    print(gen_rev(site, site.get_text_by_title(working_title))['text'])
+    print(gen_rev(site.get_text_by_title(working_title))['text'])
