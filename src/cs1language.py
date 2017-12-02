@@ -80,7 +80,7 @@ def fix_lang():
         leisure = False
         EditQueue().push(text=lambda old_text: para_re.sub(set_text, old_text),
                          summary=get_summary('CS1lang', '清理[[CAT:引文格式1维护：未识别语文类型]]'),
-                         pageid=id, minor=True, bot=True, startts=cur_timestamp())
+                         pageid=id, minor=True, bot=True, starttimestamp=cur_timestamp())
         count += 1
         if count >= MAX_WORK_PER_HOUR:
             LAST_SORT_KEY = sortkey

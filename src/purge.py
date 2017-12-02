@@ -2,7 +2,7 @@ from . import botsite, exception
 from .core import log
 
 
-DEBUG = True
+DEBUG = False
 
 
 def strip_comments(line):
@@ -44,7 +44,8 @@ def main(input_lines):
 
     pages = load_pages(index_a, index_b)
     for rst in site.purge(forcelinkupdate=True, titles=list(pages)):
-        log(rst)
+        if DEBUG:
+            log(rst)
         if 'invalid' in rst:
             dump.append('* 错误：未清空“{title}”的缓存：{reason}'.format(title=rst.get('title', ''),
                                                                   reason=rst.get('invalidreason', '')))
@@ -58,12 +59,14 @@ def main(input_lines):
 
     pages = load_pages(index_b, index_c)
     for title in pages:
-        log('purging pages embedded in [[:%s]]' % title)
+        if DEBUG:
+            log('purging pages embedded in [[:%s]]' % title)
         purged = False
         try:
             for rst in site.purge(forcelinkupdate=True, generator='embeddedin', geititle=title):
                 purged = True
-                log(rst)
+                if DEBUG:
+                    log(rst)
                 if 'purged' not in rst:
                     dump.append('* 错误：[[:{title}]]嵌入了[[:{parent}]]，但未清空前者的缓存：{rst}'.format(
                         title=rst.get('title', ''), rst=str(rst), parent=title))
@@ -81,13 +84,15 @@ def main(input_lines):
 
     pages = load_pages(index_c, len(pagelist)-1)
     for title in pages:
-        log('purging pages in [[:%s]]' % title)
+        if DEBUG:
+            log('purging pages in [[:%s]]' % title)
         purged = False
         try:
             for rst in site.purge(forcelinkupdate=True, forcerecursivelinkupdate=True,
                                   generator='embeddedin', geititle=title):
                 purged = True
-                log(rst)
+                if DEBUG:
+                    log(rst)
                 if 'purged' not in rst:
                     dump.append('* 错误：[[:{parent}]]分类中包含[[:{title}]]，但未清空后者的缓存：{rst}'.format(
                         title=rst.get('title', ''), rst=str(rst), parent=title))
