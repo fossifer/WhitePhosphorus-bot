@@ -124,6 +124,15 @@ class Site:
             return self.api_get(req, target, interval * 2)
         # print(json.dumps(result, indent=4, sort_keys=True))
         if 'error' in result:
+            code = result['error'].get('code', 'error')
+            if code == 'maxlag':
+                lag_str = result['error'].get('info', 'Maxlag Error')
+                log(lag_str)
+                lag_m = re.search(r'(\d+(\.\d+)?) seconds lagged.', lag_str)
+                lag_sec = maxlag if lag_m is None else float(lag_m.group(1))
+                log('api_get: Try again after %f sec...' % lag_sec)
+                time.sleep(lag_sec)
+                return self.api_get(req, target)
             log('api_get error!', req, target)
             raise exception.Error(result['error'])
         if 'warnings' in result:
@@ -149,6 +158,17 @@ class Site:
                     yield t
                 break
             if 'error' in result:
+                code = result['error'].get('code', 'error')
+                if code == 'maxlag':
+                    lag_str = result['error'].get('info', 'Maxlag Error')
+                    log(lag_str)
+                    lag_m = re.search(r'(\d+(\.\d+)?) seconds lagged.', lag_str)
+                    lag_sec = maxlag if lag_m is None else float(lag_m.group(1))
+                    log('api_get_long: Try again after %f sec...' % lag_sec)
+                    time.sleep(lag_sec)
+                    for t in self.api_get_long(req, target, last_c=last_c):
+                        yield t
+                    break
                 log(result)
                 raise exception.Error(result['error'])
             if 'warnings' in result:
@@ -174,17 +194,17 @@ class Site:
             if code == 'maxlag':
                 lag_str = rst['error'].get('info', 'Maxlag Error')
                 log(lag_str)
-                lag_m = re.search(r'(\d+(.\d+)?) seconds lagged.', lag_str)
+                lag_m = re.search(r'(\d+(\.\d+)?) seconds lagged.', lag_str)
                 lag_sec = maxlag if lag_m is None else float(lag_m.group(1))
-                log('Try again after %f sec...' % lag_sec)
+                log('api_post: Try again after %f sec...' % lag_sec)
                 time.sleep(lag_sec)
-                return self.api_post(data, interval=int(lag_sec)+1)
+                return self.api_post(data)
             elif code == 'badtoken':
                 self.set_tokens('csrf', self.query_tokens('csrf'))
                 if not retry:
                     self.api_post(data, interval=interval, retry=True)
                 else:
-                    log(cur_timestamp() + ': Invalid token.')
+                    log('Invalid token.')
             self.set_status(code)
         elif 'warnings' in rst:
             log('api_post: Warning:', rst['warnings'])
@@ -208,8 +228,18 @@ class Site:
                     yield t
                 break
             if 'error' in result:
-                log(result)
-                raise exception.Error(result['error'])
+                code = result['error'].get('code', 'error')
+                if code == 'maxlag':
+                    lag_str = result['error'].get('info', 'Maxlag Error')
+                    log(lag_str)
+                    lag_m = re.search(r'(\d+(\.\d+)?) seconds lagged.', lag_str)
+                    lag_sec = maxlag if lag_m is None else float(lag_m.group(1))
+                    log('api_post_long: Try again after %f sec...' % lag_sec)
+                    time.sleep(lag_sec)
+                    for t in self.api_post_long(data, target=target, last_c=last_c):
+                        yield t
+                    break
+                self.set_status(code)
             if 'warnings' in result:
                 log('api_get_long: Warning:', result['warnings'])
             if target in result:

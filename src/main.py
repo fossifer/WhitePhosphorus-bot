@@ -77,8 +77,7 @@ def main(pwd):
     try:
         scheduler.run()
     except KeyboardInterrupt:
-        if DEBUG:
-            log('the main thread terminated because of KeyboardInterrupt')
+        log('the main thread terminated because of KeyboardInterrupt')
         exit(0)
 
 
