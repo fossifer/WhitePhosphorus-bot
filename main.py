@@ -4,8 +4,8 @@ import time
 import sched
 import _thread
 import datetime
-from . import core, botsite, archive, badimage, cs1language, draft, purge, rcarl, rcwatcher, report
-from .core import log, EditQueue, InteractiveTask
+from src import core, botsite, archive, badimage, cs1language, draft, purge, rcarl, rcwatcher, report
+from src.core import log, EditQueue, InteractiveTask
 
 DEBUG = False
 

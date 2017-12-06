@@ -3,7 +3,7 @@ import time
 import sched
 import _thread
 from src import core, botsite, rcwatcher, report
-from src.main import periodic
+from main import periodic
 
 
 DEBUG = True
