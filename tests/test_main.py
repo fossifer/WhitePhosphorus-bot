@@ -10,6 +10,9 @@ DEBUG = True
 
 
 def main(pwd):
+    report.DEBUG = True
+    rcwatcher.DEBUG = True
+
     scheduler = sched.scheduler(timefunc=time.time, delayfunc=time.sleep)
 
     site = botsite.Site()
