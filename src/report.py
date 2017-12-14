@@ -199,7 +199,8 @@ def handleVIP(change):
         if DEBUG:
             log('A new VIP result will be posted:', result, '\n', sp=' ')
         else:
-            EditQueue().push(text=''.join(lines), summary=get_summary('report', '更新[[User:%s]]的处理结果' % user),
+            EditQueue().push(text=''.join(lines),
+                             summary=get_summary('report', '更新[[特殊:contribs/{0}|{0}]]的处理结果'.format(user)),
                              title=VIP, bot=True, basetimestamp=basets)
 
     # if not ip:
@@ -215,7 +216,8 @@ def handleUAA(user, result):
         if DEBUG:
             log('A new UAA result will be posted', result, sp=' ')
         else:
-            EditQueue().push(text=newtext, summary=get_summary('report', '更新[[User:%s]]的处理结果' % user),
+            EditQueue().push(text=newtext,
+                             summary=get_summary('report', '更新[[特殊:contribs/{0}|{0}]]的处理结果'.format(user)),
                              title=UAA, bot=True, basetimestamp=basets)
 
 
