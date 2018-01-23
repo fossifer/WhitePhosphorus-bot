@@ -134,7 +134,8 @@ def handleVIP(change):
     expiry = params.get('expiry')
     sysop = change.get('user')
 
-    if change.get('logaction') == 'unblock':
+    # Some admins use 0s blocks to unblock (e.g. logid 7738901)
+    if change.get('logaction') == 'unblock' or expiry == timestamp:
         return None
 
     if not expiry:
@@ -255,9 +256,12 @@ def handleRFP(change):
     if details and type(details) == list:
         # Only consider the first item (when there are edit & move protection we ignore the latter)
         pt = details[0]
+        delta = ts_delta(pt['expiry'], ots)
+        # Ignore 0s protections
+        if not delta:
+            return None
         result = '* {{{{RFPP|{level}|{time}|by={by}}}}}'.format(level=pt_dict[pt['level']] if \
-                        pt['type'] == 'edit' else pt_dict[pt['type']],
-                        time=ts_delta(pt['expiry'], ots), by=sysop)
+                        pt['type'] == 'edit' else pt_dict[pt['type']], time=delta, by=sysop)
     else:
         log('handleRFP error: "details" is empty or not a list. The log id is %d' % change.get('logid', -1))
 
