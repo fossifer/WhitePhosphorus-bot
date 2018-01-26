@@ -17,8 +17,9 @@ VIP = 'Wikipedia:当前的破坏'
 RFP = 'Wikipedia:请求保护页面'
 UAA = 'Wikipedia:需要管理員注意的用戶名'
 
+# TODO: Do not use '?:', use group name instead
 blank_re = re.compile(r'^\s*$')
-vandal_re = re.compile(r'===\s*{{\s*([Ii][Pp]vandal|[Vv]andal)\s*\|\s*(?:1=)?(.*?)\s*}}\s*===')
+vandal_re = re.compile(r'===\s*{{\s*(?:[Ii][Pp]vandal|[Vv]andal)\s*\|\s*(?:1=)?(.*?)\s*}}\s*===')
 result_re = re.compile(r'^\*\s*[处處]理：\s*(<!--[\s\S]*?-->)?\s*$')
 uaa_re = re.compile(r'{{\s*[Uu]ser-uaa\s*\|\s*(?:1=)?(.*?)\s*}}')
 protect_re = re.compile(r'===\s*\[\[:?(.*?)(?:\|.*?)?\]\]\s*===')
