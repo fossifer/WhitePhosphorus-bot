@@ -106,10 +106,11 @@ class archiver:
             arcs = site.get_text_by_title(arc_list_title)
             arcs = arcs.strip()
             old_ts = now() - datetime.timedelta(days=days_delay)
-            old_ts = old_ts.strftime('%Y年%m月%d日')
+            # Do NOT work on Windows; use %#m and %#d instead
+            old_ts = old_ts.strftime('%Y年%-m月%-d日')
             arcs += old_ts
             arcs += '\n* [[{title}|{abbr}]]：{date}－'.format(
-                title=nxt_arc, abbr=nxt_arc[nxt_arc.rfind('/')+1:], date=old_ts)
+                title=nxt_arc, abbr=nxt_arc[nxt_arc.rfind('/'):], date=old_ts)
             EditQueue().push(title=arc_list_title, text=arcs,
                              summary='机器人：+[[%s]]' % nxt_arc,
                              minor=True, bot=True)
@@ -161,7 +162,7 @@ def main(pwd):
 
 
 def default_config():
-    return archiver(arc='User talk:WhitePhosphorus/存档2',
+    return archiver(arc='User talk:WhitePhosphorus/存档3',
                     header='{{存档页}}\n{{User talk:WhitePhosphorus/header}}',
                     nxt_arc=nxt_arc, use_nxt=use_nxt)
 
@@ -169,7 +170,7 @@ def default_config():
 if __name__ == '__main__':
     #print(get_oldtext(botsite.Site(), '5457145', '2015-02-26T10:18:43Z')[:80])
     #main(sys.argv[1])
-    arc = archiver(arc='User talk:WhitePhosphorus/存档2',
+    arc = archiver(arc='User talk:WhitePhosphorus/存档3',
                    header='{{存档页}}\n{{User talk:WhitePhosphorus/header}}',
                    nxt_arc=nxt_arc, use_nxt=use_nxt)
     arc.archive()
