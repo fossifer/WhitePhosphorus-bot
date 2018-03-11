@@ -194,8 +194,13 @@ def handleVIP(change):
                 replaced = True
                 break
         elif target:
-            if target == user or (ip_range and ip_in_range(target, ip_range)):
-                found = True
+            if ip:
+                # Case insensitive for IPv6
+                if target.upper() == user or (ip_range and ip_in_range(target, ip_range)):
+                    found = True
+            else:
+                if target == user:
+                    found = True
 
     if replaced:
         if DEBUG:
