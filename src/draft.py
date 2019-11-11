@@ -6,7 +6,7 @@ from .botsite import get_summary
 from .core import EditQueue, check
 
 result_page = 'User:WhitePhosphorus-bot/AbandonedDrafts'
-draftlist = [[] for i in range(25)]
+draftlist = [[] for i in range(5)]
 week_list = ['一', '二', '三', '四', '五', '六', '日']
 R2 = {}
 
@@ -39,15 +39,15 @@ def last_ts(idlist):
         dts = datetime.datetime.strptime(ts, '%Y-%m-%dT%H:%M:%SZ')
         delta = relativedelta(curtime, dts)
         months = delta.months + delta.years*12
-        if months < 6:
+        if months < 3:
             continue
-        index = min(months - 6, 24)
+        index = min(months - 3, 4)
         insort_right(draftlist[index], ((curtime-dts).total_seconds(), title, dts))
 
 
 def init():
     global draftlist, R2
-    draftlist = [[] for i in range(25)]
+    draftlist = [[] for i in range(5)]
     R2 = {}
 
 
@@ -67,11 +67,11 @@ def main():
             tmplist = []
     last_ts(tmplist)
     total_num = 0
-    content = ('本页记录了全部最后编辑大于等于6个月的草稿页面。'
+    content = ('本页记录了全部最后编辑大于等于3个月的草稿页面。'
                '这个列表不包含跨名字空间的重定向，后者列出于[[/DraftsNeedR2]]。\n\n'
                '本页由机器人每天更新，上次更新时间为~~~~~\n\n')
     for i, drafts in enumerate(draftlist):
-        title = '== %s%d个月 ==\n' % ('大于等于' * (i == 24), i + 6)
+        title = '== %s%d个月 ==\n' % ('大于等于' * (i == 4), i + 3)
         total_num += len(draftlist[i])
         body = '# ' + '\n# '.join(['[[%s]]，最后编辑于%s' % (t[1],
                                    '{y}年{m}月{d}日 ({w}) {hh:02d}:{mm:02d} (UTC)'.format(
