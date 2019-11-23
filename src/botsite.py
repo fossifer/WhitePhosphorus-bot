@@ -32,8 +32,8 @@ maxlag = 5.0
 
 
 def get_summary(task, body):
-    return '[[User:{name}/tasks/{task}|机器人]]（[[User:{name}/controls/{task}.js|紧急开关]]）：'.format(name=bot_name,
-                                                                                               task=task) + body
+    return '[[User:{name}/tasks/{task}|机器人]]（[[User:{name}/controls/{task}.json|紧急开关]]）：'.format(name=bot_name,
+                                                                                                task=task) + body
 
 
 def log(*args, time=True, sp='\n'):

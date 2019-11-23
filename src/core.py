@@ -89,8 +89,13 @@ def singleton(cls, *args, **kwargs):
 def check_core(task_name):
     if task_name is None:
         return True
-    title = 'User:%s/controls/%s.js' % (botsite.bot_name, task_name)
-    return not botsite.Site().get_text_by_title(title)
+    # It used .js before, but currently it requires interface-admin group to
+    # edit user js. So .json is now used for admins to emergency shutdown.
+    # .js is checked as well because the page is included in summary,
+    # we cannot manipulate the summaries we made before.
+    jstitle = 'User:%s/controls/%s.js' % (botsite.bot_name, task_name)
+    jsontitle = 'User:%s/controls/%s.json' % (botsite.bot_name, task_name)
+    return not botsite.Site().get_text_by_title(jsontitle) and not botsite.Site().get_text_by_title(jstitle)
 
 
 def check(task_name):
