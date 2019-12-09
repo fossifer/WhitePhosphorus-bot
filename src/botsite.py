@@ -16,7 +16,7 @@ lang = 'zh'
 
 if not debug:
     lang_api = 'https://%s.wikipedia.org/w/api.php' % lang
-    headers = {'User-Agent': "DZLWikiBot/1.0 (https://zh.wikipedia.org/w/"
+    headers = {'User-Agent': "P4WikiBot/1.0 (https://zh.wikipedia.org/w/"
                "User_talk:WhitePhosphorus) BasedOnPython/3.6"}
     bot_name = 'WhitePhosphorus-bot'
 else:
